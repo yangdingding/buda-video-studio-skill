@@ -11,7 +11,7 @@ This skill follows the App-in-Skill pattern:
 
 - The skill reads the configured online Google Drive video library and prepares a local review batch.
 - The local app is a quiet operator surface for review, notes, approvals, cover copy, and channel decisions.
-- The app reads and writes local handoff files only.
+- The app reads and writes local handoff files and may sync video decision state to a single Google Drive JSON file.
 - External or irreversible actions require the skill to re-read approvals before executing.
 
 ## Default Workflow
@@ -22,7 +22,7 @@ When the user asks to review video production status, post-production readiness,
 2. If onboarding says OAuth client exists but no token is configured, run `node scripts/auth_google_drive.mjs`, have the user approve the browser prompt, then run `node scripts/generate_batch.mjs` again.
 3. Start or reuse the local app with `app/start.sh`.
 4. Report the local URL printed by the launcher.
-5. Tell the user the app is read/write only over local cache files.
+5. Tell the user the app stores local cache files and, when Drive write scope is authorized, syncs decisions to `buda-video-status.json`.
 
 When the user asks to execute approved decisions:
 
@@ -46,6 +46,7 @@ google_drive:
   client_secret_path: "~/.config/buda-video-studio/google-oauth-client.json"
   token_path: "~/.config/buda-video-studio/google-oauth-token.json"
   access_token_env: "BUDA_VIDEO_GOOGLE_ACCESS_TOKEN"
+  status_file_name: "buda-video-status.json"
 ```
 
 `local_drive` may exist as an explicit development fallback only. It is not the default and should not be used for team-facing workflows.
@@ -80,9 +81,10 @@ Configuration lookup order:
 ## Safety Rules
 
 - Do not publish videos, upload to social platforms, delete Drive files, or move large file sets from the local app.
-- The skill may call Google Drive API for read-only listing when configured.
+- The skill may call Google Drive API for listing, reading configured video assets, and creating/updating the configured status JSON file.
 - Treat publication, deletion, account access, paid promotion, customer data, and brand/legal claims as approval-required.
 - Keep Drive credentials, private folder IDs, and tokens out of batch files, UI state, logs, reports, and screenshots.
+- Do not write video assets, move folders, delete files, or publish content from the app; the only Drive mutation allowed by default is the status JSON file.
 - The app may show only safe config summaries: source mode, configured root path readiness, folder names, channel names, and style settings.
 - Before executing, re-read `app/.cache/decisions.json` and refuse to act on missing approvals.
 
@@ -92,6 +94,7 @@ Configuration lookup order:
 - `app/.cache/decisions.json`: user decisions, notes, and local item edits.
 - `app/.cache/execution_report.json`: latest generated briefs/checklists report.
 - `app/.cache/agent.lock`: lock while the skill writes batch/report files.
+- `buda-video-status.json`: optional Google Drive root-level state file used to remember decisions across environments.
 
 ## Video Stages
 
@@ -120,7 +123,7 @@ Use `references/video-rules.md` as the canonical rule explanation. In short:
 
 ## App Actions
 
-The app stores decisions only. The skill performs approved follow-up work.
+The app stores decisions locally and syncs them to the Drive status file when available. The skill performs approved follow-up work.
 
 Supported decision actions:
 

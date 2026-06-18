@@ -1,9 +1,48 @@
 import { decisionsPath } from "./paths.mjs";
 import { readJson, writeJson } from "./json.mjs";
 import { ensureUnlocked } from "./lock.mjs";
+import {
+  decisionToStatusEntry,
+  loadDriveStatusContext,
+  readDriveStatus,
+  writeDriveStatus,
+} from "../../lib/google-drive-state.mjs";
 
 const allowedActions = new Set(["approve", "revise", "block", "no_action", ""]);
 const allowedWorkflowSteps = new Set(["topic_selected", "assigned_recording", ""]);
+
+const syncDecisionToDrive = async ({ id, decision }) => {
+  const { loadedConfig, tokenState } = await loadDriveStatusContext();
+  if (!tokenState.ready) {
+    return {
+      synced: false,
+      reason: "Google Drive token is not ready.",
+    };
+  }
+
+  const current = await readDriveStatus({
+    config: loadedConfig.config,
+    accessToken: tokenState.accessToken,
+  });
+  const status = {
+    ...current.status,
+    videos: {
+      ...(current.status.videos || {}),
+      [id]: decisionToStatusEntry(decision),
+    },
+  };
+  const saved = await writeDriveStatus({
+    config: loadedConfig.config,
+    accessToken: tokenState.accessToken,
+    status,
+  });
+
+  return {
+    synced: true,
+    file_id: saved.file?.id || "",
+    file_name: saved.file?.name || "",
+  };
+};
 
 export const saveDecision = async (payload) => {
   await ensureUnlocked();
@@ -47,5 +86,23 @@ export const saveDecision = async (payload) => {
     decisions,
   });
 
-  return decisions[payload.id];
+  const decision = decisions[payload.id];
+  try {
+    const drive_sync = await syncDecisionToDrive({
+      id: payload.id,
+      decision,
+    });
+    return {
+      ...decision,
+      drive_sync,
+    };
+  } catch (error) {
+    return {
+      ...decision,
+      drive_sync: {
+        synced: false,
+        error: error.message || "Google Drive status sync failed.",
+      },
+    };
+  }
 };

@@ -6,7 +6,7 @@ import { spawn } from "node:child_process";
 import { loadConfig } from "../lib/config.mjs";
 import { writeJson } from "../lib/common.mjs";
 
-const defaultScope = "https://www.googleapis.com/auth/drive.readonly";
+const defaultScope = "https://www.googleapis.com/auth/drive";
 
 const base64Url = (buffer) =>
   buffer.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");

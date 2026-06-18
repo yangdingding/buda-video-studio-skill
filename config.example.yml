@@ -15,6 +15,11 @@ google_drive:
   # Option B: bring your own access token via env, useful in hosted systems.
   access_token_env: "BUDA_VIDEO_GOOGLE_ACCESS_TOKEN"
 
+  # Online state memory. The skill creates/updates this JSON file in the
+  # configured Drive root so approvals and distribution status survive
+  # across agent environments.
+  status_file_name: "buda-video-status.json"
+
 video_library:
   project_folder_mode: true
   raw_folder_names:

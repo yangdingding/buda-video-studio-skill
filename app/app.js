@@ -95,6 +95,37 @@ const decisionDisplayLabel = (item, decision) => {
   return decisionLabel(decision?.action);
 };
 
+const topicStatusLabel = (item) => {
+  const decision = currentDecision(item);
+  if (decision.action === "block") return "暂缓";
+  if (decision.action === "no_action") return "跳过";
+  if (decision.action === "revise") return "需补充 brief";
+  if (decision.workflow_step === "topic_selected") return "已通过";
+  return "待确认方向";
+};
+
+const topicHintLabel = (item) => {
+  const decision = currentDecision(item);
+  if (decision.action === "revise") return "补充角度";
+  if (decision.action === "block") return "暂缓";
+  if (decision.action === "no_action") return "跳过";
+  if (decision.workflow_step === "topic_selected") return "可分配录制";
+  return "确认是否要拍";
+};
+
+const topicTypeLabel = (item) => {
+  const text = `${item.title} ${item.summary}`.toLowerCase();
+  if (/tutorial|教程|how to|如何/.test(text)) return "教程";
+  if (/case|案例|use case|实战/.test(text)) return "案例";
+  if (/vs|alternative|对比|替代/.test(text)) return "对比";
+  if (/why|为什么|观点|趋势/.test(text)) return "观点";
+  return "工作流";
+};
+
+const topicSourceLabel = (item) => item.topic_source || "选题表";
+
+const topicPriorityLabel = (item) => item.priority || "P1";
+
 const riskLabel = (risk) =>
   ({
     cover_copy: "需封面文案",
@@ -121,6 +152,7 @@ const reasonLabel = (reason) =>
     "Online Google Drive has raw video, voiceover/script, and cover material.": "口播稿、封面图、原始视频都已就绪。",
     "Some required production items are missing.": "必要素材未齐，需要补充口播稿、封面图或原始视频。",
     "Project folder needs source material or direction.": "项目文件夹还缺素材或选题方向。",
+    "Topic captured from the agent topic sheet.": "来自选题表，等待确认是否进入录制。",
     "Cover assets exist, but source footage/script was not found.": "已有封面素材，但缺原始视频或口播稿。",
   })[reason] || reason;
 
@@ -200,6 +232,32 @@ const nextStepLabel = (item) =>
     done: "流程已完成",
     blocked: "先处理阻塞原因",
   })[workflowQueue(item)] || "检查视频状态";
+
+const detailTitle = (item) =>
+  ({
+    topic_board: "选题方向确认",
+    assignment: "录制分配",
+    waiting_upload: "素材补齐",
+    material_review: "素材检查",
+    cover_generation: "封面制作",
+    edit_output: "剪辑输出",
+    distribution_confirm: "分发确认",
+    done: "已完成",
+    blocked: "阻塞处理",
+  })[workflowQueue(item)] || item.title;
+
+const detailDescription = (item) =>
+  ({
+    topic_board: "先判断这个方向是否值得拍，再进入录制分配。",
+    assignment: "确认录制人、交付时间和录制注意事项。",
+    waiting_upload: "等待口播稿、原始视频和封面图补齐。",
+    material_review: "检查上传物是否符合后期要求。",
+    cover_generation: "根据口播稿和素材制作封面。",
+    edit_output: "开始剪辑并输出各渠道版本。",
+    distribution_confirm: "确认输出文件和分发渠道。",
+    done: "这条视频流程已完成。",
+    blocked: "先处理阻塞原因。",
+  })[workflowQueue(item)] || reasonLabel(item.reason);
 
 const approveButtonLabel = (item) =>
   ({
@@ -579,9 +637,19 @@ const renderMetrics = () => {
 
 const renderList = () => {
   const list = filteredItems();
-
-  $("#videoList").innerHTML =
-    `<div class="list-header">
+  const isTopicBoardView =
+    activeFilter === "topic_board" || (list.length > 0 && list.every((item) => workflowQueue(item) === "topic_board"));
+  const header = isTopicBoardView
+    ? `<div class="list-header topic-header">
+      <span>选题</span>
+      <span>来源</span>
+      <span>类型</span>
+      <span>受众</span>
+      <span>优先级</span>
+      <span>状态</span>
+      <span>下一步</span>
+    </div>`
+    : `<div class="list-header">
       <span>视频项目</span>
       <span>阶段</span>
       <span>状态</span>
@@ -589,10 +657,41 @@ const renderList = () => {
       <span>封面图</span>
       <span>原始视频</span>
       <span>提示</span>
-    </div>` +
+    </div>`;
+
+  $("#videoList").innerHTML =
+    header +
     (list
       .map((item) => {
         const decision = currentDecision(item);
+        if (isTopicBoardView) {
+          return `
+        <button class="video-row topic-row ${activeId === item.id ? "active" : ""}" data-id="${item.id}" data-stage="${escapeHtml(item.stage)}">
+          <div class="video-main">
+            <div class="queue-code">${escapeHtml(item.ref.replace(/^Video/i, "Topic"))}</div>
+            <div class="row-title">${escapeHtml(item.title)}</div>
+            <p class="row-summary">${escapeHtml(reasonLabel(item.reason))}</p>
+          </div>
+          <div class="stage-cell" data-label="来源">
+            <span class="stage-text">${escapeHtml(topicSourceLabel(item))}</span>
+          </div>
+          <div class="status-cell" data-label="类型">
+            <span class="status-text">${escapeHtml(topicTypeLabel(item))}</span>
+          </div>
+          <div class="asset-cell" data-label="受众">
+            <span class="inline-text">${escapeHtml(item.target_audience || "待确认")}</span>
+          </div>
+          <div class="asset-cell" data-label="优先级">
+            <span class="inline-text">${escapeHtml(topicPriorityLabel(item))}</span>
+          </div>
+          <div class="asset-cell" data-label="状态">
+            <span class="inline-text">${escapeHtml(topicStatusLabel(item))}</span>
+          </div>
+          <div class="action-cell" data-label="下一步">
+            <span class="hint-text muted">${escapeHtml(topicHintLabel(item))}</span>
+          </div>
+        </button>`;
+        }
         const missingRequired = requiredChecks(item).filter((check) => !check.ready);
         return `
         <button class="video-row ${activeId === item.id ? "active" : ""}" data-id="${item.id}" data-stage="${escapeHtml(item.stage)}">
@@ -681,8 +780,8 @@ const renderDetail = () => {
     </div>
     <div class="detail-header">
       <div>
-        <h3>${escapeHtml(item.title)}</h3>
-        <p>${escapeHtml(reasonLabel(item.reason))}</p>
+        <h3>${escapeHtml(detailTitle(item))}</h3>
+        <p>${escapeHtml(detailDescription(item))}</p>
       </div>
       <div class="detail-state-line">
         <span>${escapeHtml(workflowLabel(item))}</span>
@@ -784,6 +883,11 @@ const saveDecision = async (id, action) => {
     const error = await response.json();
     alert(error.error || "Could not save decision.");
     return;
+  }
+
+  const result = await response.json();
+  if (result.decision?.drive_sync?.error) {
+    console.warn("Google Drive status sync failed:", result.decision.drive_sync.error);
   }
 
   await loadState({ force: true });
