@@ -796,42 +796,61 @@ const filteredItems = () =>
     return matchesSearch && matchesFilter;
   });
 
-const humanActionItems = () =>
-  items().filter((item) =>
-    ["topic_board", "assignment", "waiting_upload", "distribution_confirm", "blocked"].includes(workflowQueue(item))
-  );
+const humanWorkflowQueues = ["topic_board", "assignment", "waiting_upload", "material_review", "distribution_confirm"];
+const executionWorkflowQueues = ["cover_generation", "edit_output"];
+const workflowPriority = [
+  "blocked",
+  "topic_board",
+  "assignment",
+  "waiting_upload",
+  "material_review",
+  "cover_generation",
+  "edit_output",
+  "distribution_confirm",
+];
 
-const primaryActionLabel = (countByQueue) => {
-  if (countByQueue.blocked) return "先处理阻塞项";
-  if (countByQueue.distribution_confirm) return "确认分发并记录渠道";
-  if (countByQueue.waiting_upload) return "补齐口播稿、封面和原片";
-  if (countByQueue.assignment) return "分配录制人和交付时间";
-  if (countByQueue.topic_board) return "确认哪些选题值得拍";
+const needsHumanAction = (item) => humanWorkflowQueues.includes(workflowQueue(item));
+
+const readyForSkillExecution = (item) => {
+  const queue = workflowQueue(item);
+  const decision = currentDecision(item);
+  return decision.action === "approve" && executionWorkflowQueues.includes(queue);
+};
+
+const primaryActionLabel = (humanItems, blockedItems, executionItems) => {
+  if (blockedItems.length) return "先处理阻塞说明，解除后回到对应流程";
+
+  const primaryQueue = workflowPriority.find((queue) => humanItems.some((item) => workflowQueue(item) === queue));
+  if (primaryQueue === "topic_board") return "确认选题是否进入录制计划";
+  if (primaryQueue === "assignment") return "分配录制人和交付时间";
+  if (primaryQueue === "waiting_upload") return "补齐口播稿、封面图和原始视频";
+  if (primaryQueue === "material_review") return "检查上传素材是否符合后期要求";
+  if (primaryQueue === "distribution_confirm") return "确认分发渠道，并在发布后记录链接";
+  if (executionItems.length) return "已有批准项，等待 skill 执行下一步";
   return "暂无需要你处理的事项";
 };
 
 const renderActionPanel = () => {
   const all = items();
-  const countByQueue = Object.fromEntries(filters.map(([key]) => [key, all.filter((item) => filterMatch(item, key)).length]));
-  const humanItems = humanActionItems();
-  const aiContinueCount = all.filter((item) => ["material_review", "cover_generation", "edit_output"].includes(workflowQueue(item))).length;
-  const blockedCount = countByQueue.blocked || 0;
+  const humanItems = all.filter(needsHumanAction);
+  const executionItems = all.filter(readyForSkillExecution);
+  const blockedItems = all.filter(isBlocked);
 
   $("#approvalPanel").innerHTML = `
     <div class="approval-kicker">需要你</div>
     <h2>人类操作审批区</h2>
-    <p>${escapeHtml(primaryActionLabel(countByQueue))}</p>
+    <p>${escapeHtml(primaryActionLabel(humanItems, blockedItems, executionItems))}</p>
     <div class="approval-primary">
       <strong>${humanItems.length}</strong>
-      <span>需要备注或决定</span>
+      <span>待你处理</span>
     </div>
     <div class="approval-mini-grid">
       <div>
-        <strong>${aiContinueCount}</strong>
-        <span>AI 可继续</span>
+        <strong>${executionItems.length}</strong>
+        <span>AI 待执行</span>
       </div>
       <div>
-        <strong>${blockedCount}</strong>
+        <strong>${blockedItems.length}</strong>
         <span>受阻</span>
       </div>
     </div>`;
