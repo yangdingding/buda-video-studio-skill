@@ -76,8 +76,7 @@ a:focus-visible {
   grid-template-columns: 38px 1fr;
   gap: 11px;
   align-items: center;
-  padding-bottom: 18px;
-  border-bottom: 1px solid var(--line);
+  padding-bottom: 14px;
 }
 
 .mark {
@@ -127,6 +126,96 @@ p {
   color: var(--muted);
 }
 
+.approval-panel {
+  margin-top: 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: color-mix(in oklch, var(--panel) 68%, var(--accent-soft));
+  padding: 13px;
+}
+
+.approval-kicker {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.approval-panel h2 {
+  margin-top: 5px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.approval-panel p {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.approval-primary {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 11px;
+  margin-top: 13px;
+  border: 1px solid color-mix(in oklch, var(--accent) 20%, var(--line));
+  border-radius: 7px;
+  background: color-mix(in oklch, var(--accent-soft) 58%, var(--panel));
+  padding: 10px;
+}
+
+.approval-primary strong {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 7px;
+  background: var(--accent);
+  color: white;
+  font-size: 20px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.approval-primary span {
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.approval-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.approval-mini-grid div {
+  border: 1px solid var(--line-soft);
+  border-radius: 7px;
+  background: var(--panel);
+  padding: 8px 9px;
+}
+
+.approval-mini-grid strong {
+  display: block;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.approval-mini-grid span {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.2;
+}
+
 #viewSubtitle {
   margin-top: 3px;
   color: var(--muted);
@@ -147,7 +236,7 @@ p {
 }
 
 .sidebar-block {
-  margin-top: 18px;
+  margin-top: 22px;
   margin-bottom: 8px;
 }
 

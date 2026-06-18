@@ -796,6 +796,47 @@ const filteredItems = () =>
     return matchesSearch && matchesFilter;
   });
 
+const humanActionItems = () =>
+  items().filter((item) =>
+    ["topic_board", "assignment", "waiting_upload", "distribution_confirm", "blocked"].includes(workflowQueue(item))
+  );
+
+const primaryActionLabel = (countByQueue) => {
+  if (countByQueue.blocked) return "先处理阻塞项";
+  if (countByQueue.distribution_confirm) return "确认分发并记录渠道";
+  if (countByQueue.waiting_upload) return "补齐口播稿、封面和原片";
+  if (countByQueue.assignment) return "分配录制人和交付时间";
+  if (countByQueue.topic_board) return "确认哪些选题值得拍";
+  return "暂无需要你处理的事项";
+};
+
+const renderActionPanel = () => {
+  const all = items();
+  const countByQueue = Object.fromEntries(filters.map(([key]) => [key, all.filter((item) => filterMatch(item, key)).length]));
+  const humanItems = humanActionItems();
+  const aiContinueCount = all.filter((item) => ["material_review", "cover_generation", "edit_output"].includes(workflowQueue(item))).length;
+  const blockedCount = countByQueue.blocked || 0;
+
+  $("#approvalPanel").innerHTML = `
+    <div class="approval-kicker">需要你</div>
+    <h2>人类操作审批区</h2>
+    <p>${escapeHtml(primaryActionLabel(countByQueue))}</p>
+    <div class="approval-primary">
+      <strong>${humanItems.length}</strong>
+      <span>需要备注或决定</span>
+    </div>
+    <div class="approval-mini-grid">
+      <div>
+        <strong>${aiContinueCount}</strong>
+        <span>AI 可继续</span>
+      </div>
+      <div>
+        <strong>${blockedCount}</strong>
+        <span>受阻</span>
+      </div>
+    </div>`;
+};
+
 const renderFilters = () => {
   const counts = Object.fromEntries(filters.map(([key]) => [key, items().filter((item) => filterMatch(item, key)).length]));
 
@@ -1142,6 +1183,7 @@ const render = () => {
     activeFilter = "all";
   }
   renderTop();
+  renderActionPanel();
   renderFilters();
   renderSettings();
   renderMetrics();
