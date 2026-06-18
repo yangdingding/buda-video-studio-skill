@@ -1210,6 +1210,46 @@ label {
   font-size: 12px;
 }
 
+.production-form {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  border: 1px solid color-mix(in oklch, var(--line) 58%, transparent);
+  border-radius: 8px;
+  background: color-mix(in oklch, var(--panel-soft) 18%, transparent);
+  padding: 10px 12px;
+}
+
+.production-form label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.production-form span {
+  color: var(--faint);
+  font-size: 11px;
+}
+
+.production-form input,
+.production-form select {
+  min-width: 0;
+  border: 1px solid color-mix(in oklch, var(--line) 82%, transparent);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink);
+  padding: 7px 8px;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.production-form input:focus,
+.production-form select:focus {
+  outline: 2px solid color-mix(in oklch, var(--accent) 24%, transparent);
+  outline-offset: 1px;
+  border-color: color-mix(in oklch, var(--accent) 46%, var(--line));
+}
+
 .form-section {
   margin-top: 26px;
 }

@@ -117,7 +117,8 @@ const topicStatusLabel = (item) => {
   if (decision.action === "block") return "暂缓";
   if (decision.action === "no_action") return "跳过";
   if (decision.action === "revise") return "需补充 brief";
-  if (decision.workflow_step === "topic_selected") return "已通过";
+  if (decision.topic_decision) return decision.topic_decision;
+  if (decision.workflow_step === "topic_selected") return "已确定";
   return "待确认方向";
 };
 
@@ -141,7 +142,13 @@ const topicTypeLabel = (item) => {
 
 const topicSourceLabel = (item) => item.topic_source || "选题表";
 
-const topicPriorityLabel = (item) => item.priority || "P1";
+const topicPriorityLabel = (item) => currentDecision(item).topic_priority || item.topic_priority || item.priority || "P1";
+
+const productionOwner = (item) => currentDecision(item).owner || item.owner || "未分配";
+
+const productionDueDate = (item) => currentDecision(item).due_date || item.due_date || "待定";
+
+const recordingStatusLabel = (item) => currentDecision(item).recording_status || item.recording_status || "未分配";
 
 const riskLabel = (risk) =>
   ({
@@ -389,6 +396,53 @@ const topicBriefHtml = (item) => {
           <li>建议方向：${escapeHtml(item.topic_direction || "待确认")}</li>
           <li>下一步：${escapeHtml(nextStepLabel(item))}</li>
         </ul>
+      </div>
+    </section>`;
+};
+
+const productionMetaHtml = (item, locked) => {
+  const queue = workflowQueue(item);
+  if (!["topic_board", "assignment", "waiting_upload"].includes(queue)) return "";
+  const decision = currentDecision(item);
+  const topicDecision = decision.topic_decision || (decision.workflow_step === "topic_selected" ? "已确定" : item.topic_decision || "待确认");
+  const priority = topicPriorityLabel(item);
+  const owner = productionOwner(item) === "未分配" ? "" : productionOwner(item);
+  const dueDate = productionDueDate(item) === "待定" ? "" : productionDueDate(item);
+  const recordingStatus = recordingStatusLabel(item);
+
+  return `
+    <section class="section compact">
+      <div class="section-title">
+        <h4>生产信息</h4>
+        <p>${queue === "topic_board" ? "先确认选题，再进入录制分配。" : "记录负责人、交付时间和录制进度。"}</p>
+      </div>
+      <div class="production-form">
+        <label>
+          <span>选题决策</span>
+          <select id="topicDecision" ${locked ? "disabled" : ""}>
+            ${["待确认", "已确定", "暂缓", "放弃"].map((value) => `<option value="${escapeHtml(value)}" ${value === topicDecision ? "selected" : ""}>${escapeHtml(value)}</option>`).join("")}
+          </select>
+        </label>
+        <label>
+          <span>优先级</span>
+          <select id="topicPriority" ${locked ? "disabled" : ""}>
+            ${["P0", "P1", "P2", "P3"].map((value) => `<option value="${escapeHtml(value)}" ${value === priority ? "selected" : ""}>${escapeHtml(value)}</option>`).join("")}
+          </select>
+        </label>
+        <label>
+          <span>负责人</span>
+          <input id="recordingOwner" ${locked ? "disabled" : ""} value="${escapeHtml(owner)}" placeholder="例如：Kelly / 外包剪辑 / 待分配" />
+        </label>
+        <label>
+          <span>交付时间</span>
+          <input id="recordingDueDate" ${locked ? "disabled" : ""} value="${escapeHtml(dueDate)}" placeholder="例如：下周三 / 2026-06-24" />
+        </label>
+        <label>
+          <span>录制状态</span>
+          <select id="recordingStatus" ${locked ? "disabled" : ""}>
+            ${["未分配", "已分配", "录制中", "已上传"].map((value) => `<option value="${escapeHtml(value)}" ${value === recordingStatus ? "selected" : ""}>${escapeHtml(value)}</option>`).join("")}
+          </select>
+        </label>
       </div>
     </section>`;
 };
@@ -710,6 +764,7 @@ const detailBodyHtml = (item, assetsByType, selectedOutputs, decision, locked) =
   const bodies = {
     topic_board: `
       ${topicBriefHtml(item)}
+      ${productionMetaHtml(item, locked)}
       ${queueGuideHtml("选题判断", "这一阶段只看方向本身，不检查素材。", [
         "是否符合 Buda 当前传播重点",
         "是否有清楚的受众和使用场景",
@@ -717,6 +772,7 @@ const detailBodyHtml = (item, assetsByType, selectedOutputs, decision, locked) =
       ])}`,
     assignment: `
       ${topicBriefHtml(item)}
+      ${productionMetaHtml(item, locked)}
       ${recordingBriefHtml(item)}
       ${queueGuideHtml("分配录制", "把方向交给具体录制人，并约定交付时间。", [
         "确认录制人",
@@ -724,6 +780,7 @@ const detailBodyHtml = (item, assetsByType, selectedOutputs, decision, locked) =
         "把录制要求同步给对方",
       ])}`,
     waiting_upload: `
+      ${productionMetaHtml(item, locked)}
       ${missingFocusHtml(item)}
       ${recordingBriefHtml(item)}
       ${archivedAssetsHtml(item, sourceAssets)}`,
@@ -931,15 +988,29 @@ const renderList = () => {
   const list = filteredItems();
   const isTopicBoardView =
     activeFilter === "topic_board" || (list.length > 0 && list.every((item) => workflowQueue(item) === "topic_board"));
+  const isRecordingPlanView =
+    !isTopicBoardView &&
+    (["assignment", "waiting_upload"].includes(activeFilter) ||
+      (list.length > 0 && list.every((item) => ["assignment", "waiting_upload"].includes(workflowQueue(item)))));
   const header = isTopicBoardView
     ? `<div class="list-header topic-header">
       <span>选题</span>
       <span>来源</span>
-      <span>类型</span>
-      <span>受众</span>
       <span>优先级</span>
+      <span>选题决策</span>
+      <span>负责人</span>
+      <span>交付时间</span>
+      <span>提示</span>
+    </div>`
+    : isRecordingPlanView
+      ? `<div class="list-header">
+      <span>视频项目</span>
+      <span>阶段</span>
       <span>状态</span>
-      <span>下一步</span>
+      <span>负责人</span>
+      <span>交付时间</span>
+      <span>录制状态</span>
+      <span>提示</span>
     </div>`
     : `<div class="list-header">
       <span>视频项目</span>
@@ -967,19 +1038,19 @@ const renderList = () => {
           <div class="stage-cell" data-label="来源">
             <span class="stage-text">${escapeHtml(topicSourceLabel(item))}</span>
           </div>
-          <div class="status-cell" data-label="类型">
-            <span class="status-text">${escapeHtml(topicTypeLabel(item))}</span>
-          </div>
-          <div class="asset-cell" data-label="受众">
-            <span class="inline-text">${escapeHtml(item.target_audience || "待确认")}</span>
-          </div>
           <div class="asset-cell" data-label="优先级">
             <span class="inline-text">${escapeHtml(topicPriorityLabel(item))}</span>
           </div>
-          <div class="asset-cell" data-label="状态">
+          <div class="asset-cell" data-label="选题决策">
             <span class="inline-text">${escapeHtml(topicStatusLabel(item))}</span>
           </div>
-          <div class="action-cell" data-label="下一步">
+          <div class="asset-cell" data-label="负责人">
+            <span class="inline-text">${escapeHtml(productionOwner(item))}</span>
+          </div>
+          <div class="asset-cell" data-label="交付时间">
+            <span class="inline-text">${escapeHtml(productionDueDate(item))}</span>
+          </div>
+          <div class="action-cell" data-label="提示">
             <span class="hint-text muted">${escapeHtml(topicHintLabel(item))}</span>
           </div>
         </button>`;
@@ -998,12 +1069,25 @@ const renderList = () => {
           <div class="status-cell" data-label="状态">
             <span class="status-text">${escapeHtml(statusDisplayLabel(item))}</span>
           </div>
-          ${requiredChecks(item)
-            .map((check) => `
-              <div class="asset-cell" data-label="${escapeHtml(check.label)}">
-                <span class="asset-state ${check.ready ? "ready" : "missing"}">${check.ready ? "✓" : "缺"} ${escapeHtml(check.label)}</span>
-              </div>`)
-            .join("")}
+          ${
+            isRecordingPlanView
+              ? `
+                <div class="asset-cell" data-label="负责人">
+                  <span class="inline-text">${escapeHtml(productionOwner(item))}</span>
+                </div>
+                <div class="asset-cell" data-label="交付时间">
+                  <span class="inline-text">${escapeHtml(productionDueDate(item))}</span>
+                </div>
+                <div class="asset-cell" data-label="录制状态">
+                  <span class="inline-text">${escapeHtml(recordingStatusLabel(item))}</span>
+                </div>`
+              : requiredChecks(item)
+                  .map((check) => `
+                    <div class="asset-cell" data-label="${escapeHtml(check.label)}">
+                      <span class="asset-state ${check.ready ? "ready" : "missing"}">${check.ready ? "✓" : "缺"} ${escapeHtml(check.label)}</span>
+                    </div>`)
+                  .join("")
+          }
           <div class="action-cell" data-label="提示">
             ${
               decision.action
@@ -1158,6 +1242,11 @@ const saveDecision = async (id, action) => {
       id,
       action,
       comment: $("#reviewNote")?.value || "",
+      topic_decision: $("#topicDecision")?.value || decision.topic_decision || "",
+      topic_priority: $("#topicPriority")?.value || decision.topic_priority || "",
+      owner: $("#recordingOwner")?.value || decision.owner || "",
+      due_date: $("#recordingDueDate")?.value || decision.due_date || "",
+      recording_status: $("#recordingStatus")?.value || decision.recording_status || "",
       cover_title: $("#coverZhTitle")?.value || "",
       cover_subtitle: $("#coverZhSubtitle")?.value || "",
       cover_zh_title: $("#coverZhTitle")?.value || "",

@@ -69,6 +69,11 @@ export const saveDecision = async (payload) => {
   decisions[payload.id] = {
     action: payload.action || "",
     comment: payload.comment || "",
+    topic_decision: payload.topic_decision || previous.topic_decision || "",
+    topic_priority: payload.topic_priority || previous.topic_priority || "",
+    owner: payload.owner || previous.owner || "",
+    due_date: payload.due_date || previous.due_date || "",
+    recording_status: payload.recording_status || previous.recording_status || "",
     cover_title: payload.cover_title || "",
     cover_subtitle: payload.cover_subtitle || "",
     cover_zh_title: payload.cover_zh_title || payload.cover_title || "",
