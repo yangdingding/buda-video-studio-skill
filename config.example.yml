@@ -1,0 +1,70 @@
+data_reader: "google_drive_api"
+
+google_drive:
+  mode: "api"
+  root_folder_id: "Google Drive folder id for Buda Videos"
+  auth_mode: "device"
+
+  # Option A: device flow, recommended for Codex/local/online IDE agents.
+  # Create an OAuth client for TV / limited input devices when available.
+  # A Desktop OAuth client can also be used by some local flows, but device
+  # flow is the most portable for agent environments.
+  client_secret_path: "~/.config/buda-video-studio/google-oauth-client.json"
+  token_path: "~/.config/buda-video-studio/google-oauth-token.json"
+
+  # Option B: bring your own access token via env, useful in hosted systems.
+  access_token_env: "BUDA_VIDEO_GOOGLE_ACCESS_TOKEN"
+
+video_library:
+  project_folder_mode: true
+  raw_folder_names:
+    - "Raw"
+    - "原始视频"
+    - "原视频"
+  cover_folder_names:
+    - "Covers"
+    - "封面"
+  voiceover_folder_names:
+    - "Scripts"
+    - "Script"
+    - "口播"
+    - "脚本"
+    - "旁白"
+  voiceover_file_keywords:
+    - "口播"
+    - "脚本"
+    - "旁白"
+    - "voiceover"
+    - "script"
+  youtube_folder_names:
+    - "Youtube"
+    - "YouTube"
+  shorts_folder_names:
+    - "Shorts"
+  video_account_folder_names:
+    - "视频号"
+
+video_rules:
+  # Required production checks: voiceover markdown, PNG/JPG cover, and raw video.
+  distribution_ready_requires_export: true
+  ready_for_edit_requires_voiceover: true
+  ready_for_edit_requires_cover: true
+  ready_for_edit_requires_raw: true
+  ready_for_edit_accepts_script: true
+  ready_for_edit_accepts_transcript: true
+  missing_cover_adds_risk: true
+  default_topic_direction: "Buda product/GTM video"
+  default_target_audience: "SaaS founders, indie hackers, and GTM operators"
+  default_long_form_duration: "3-5 min full cut; 30-60s short cuts"
+
+channels:
+  - "YouTube"
+  - "YouTube Shorts"
+  - "LinkedIn"
+  - "小红书"
+  - "视频号"
+  - "Bilibili"
+
+style:
+  cover_tone: "清晰、强利益点、适合创始人和增长负责人"
+  default_cta: "关注 Buda，获取 AI GTM 自动化工作流"

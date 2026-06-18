@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Buda Video Studio</title>
+    <script>
+      if (window.location.protocol === "file:") {
+        window.location.replace("http://127.0.0.1:3000/");
+      }
+    </script>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="mark">VS</div>
+          <div>
+            <h1>Buda Video Studio</h1>
+            <p id="batchMeta">Loading</p>
+          </div>
+        </div>
+        <section class="sidebar-block">
+          <div class="block-title">工作队列</div>
+        </section>
+        <nav class="filters" id="filters"></nav>
+        <section class="settings" id="settings"></section>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <div class="eyebrow">云端硬盘视频制作台</div>
+            <h2 id="viewTitle">全部视频</h2>
+            <p id="viewSubtitle">Loading batch</p>
+          </div>
+          <div class="top-actions">
+            <div class="status-pill" id="lockStatus">Checking</div>
+          </div>
+        </header>
+
+        <section class="metrics" id="metrics"></section>
+
+        <section class="content">
+          <div class="list-pane">
+            <div class="search-row">
+              <span class="search-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" focusable="false">
+                  <path d="m21 21-4.35-4.35" />
+                  <circle cx="11" cy="11" r="7" />
+                </svg>
+              </span>
+              <input id="searchInput" type="search" placeholder="搜索标题、阶段、渠道..." />
+            </div>
+            <div class="video-list" id="videoList"></div>
+          </div>
+
+          <article class="detail-pane" id="detailPane" aria-live="polite">
+            <div class="empty-state">
+              <h3>Select a video</h3>
+              <p>Pick an item to review post-production readiness and channel outputs.</p>
+            </div>
+          </article>
+        </section>
+      </main>
+    </div>
+    <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
+    <div class="video-preview" id="videoPreview" hidden>
+      <div class="video-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="videoPreviewTitle">
+        <div class="video-preview-top">
+          <span id="videoPreviewTitle">文件预览</span>
+          <button class="video-preview-close" id="closeVideoPreview" aria-label="关闭预览" title="关闭预览">×</button>
+        </div>
+        <iframe id="videoPreviewFrame" title="Google Drive 文件预览" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+        <p class="video-preview-note">使用 Google Drive 官方预览。若无法查看，请确认当前 Google 账号有权限，或在 Drive 中打开。</p>
+      </div>
+    </div>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

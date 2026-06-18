@@ -1,0 +1,862 @@
+const filters = [
+  ["all", "全部"],
+  ["topic_board", "选题表"],
+  ["assignment", "待分配录制"],
+  ["waiting_upload", "待补齐素材"],
+  ["material_review", "待检查素材"],
+  ["cover_generation", "待制作封面"],
+  ["edit_output", "待剪辑输出"],
+  ["distribution_confirm", "待确认分发"],
+  ["done", "已完成"],
+  ["blocked", "阻塞"],
+];
+
+let state = null;
+let activeFilter = "all";
+let activeId = null;
+let detailOpen = false;
+let search = "";
+let editing = false;
+
+const $ = (selector) => document.querySelector(selector);
+
+const ruleLabels = {
+  channel_export_found: "已有渠道导出",
+  export_found_missing_required_items: "有导出但必要项不齐",
+  raw_plus_direction: "原始视频 + 口播稿",
+  raw_without_direction: "有原片，缺方向",
+  direction_without_raw: "有口播稿，缺原始视频",
+  cover_without_source: "有封面，缺源素材",
+  no_source_material: "缺源素材",
+};
+
+const assetLabels = {
+  raw_video: "原片",
+  voiceover: "口播稿",
+  script: "口播稿",
+  transcript: "字幕文件",
+  cover: "封面",
+  youtube_export: "YouTube",
+  shorts_export: "Shorts",
+  video_account_export: "视频号",
+};
+
+const evidenceLabels = {
+  raw: "原片",
+  voiceover: "口播稿",
+  script: "口播稿",
+  transcript: "字幕文件",
+  cover: "封面",
+  youtube_export: "YouTube",
+  shorts_export: "Shorts",
+  video_account_export: "视频号",
+};
+
+const escapeHtml = (value) =>
+  String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+
+const stageLabel = (stage) =>
+  ({
+    idea: "选题",
+    script_ready: "待补素材",
+    assets_ready: "待补素材",
+    ready_for_edit: "后期就绪",
+    editing: "剪辑中",
+    cover_review: "封面审核",
+    render_ready: "可输出",
+    distribution_ready: "待分发",
+    published: "已发布",
+    blocked: "阻塞",
+  })[stage] || stage;
+
+const statusLabel = (status) =>
+  ({
+    needs_review: "待处理",
+    to_approve: "待处理",
+    approved: "已批准",
+    done: "已完成",
+    blocked: "阻塞",
+  })[status] || status;
+
+const decisionLabel = (action) =>
+  ({
+    approve: "已批准",
+    revise: "要修改",
+    block: "已阻塞",
+    no_action: "跳过",
+  })[action] || "";
+
+const decisionDisplayLabel = (item, decision) => {
+  if (decision?.workflow_done) return "已确认";
+  return decisionLabel(decision?.action);
+};
+
+const riskLabel = (risk) =>
+  ({
+    cover_copy: "需封面文案",
+    missing_voiceover: "缺口播稿",
+    missing_cover: "缺封面图",
+    missing_raw_video: "缺原始视频",
+  })[risk] || risk;
+
+const actionLabel = (action) =>
+  ({
+    approve: "批准",
+    revise: "修改",
+    block: "阻塞",
+    no_action: "跳过",
+  })[action] || action;
+
+const reasonLabel = (reason) =>
+  ({
+    "Cloud Drive has exported channel assets; review distribution and status.": "已找到渠道导出文件，可以检查分发状态。",
+    "Cloud Drive has exported channel assets, but required production items are missing.": "已找到渠道导出文件，但必要项还不完整。",
+    "Script or transcript exists online; confirm whether footage is needed.": "已找到口播稿，需要确认是否还缺原始视频。",
+    "Raw footage exists online, but script/transcript material was not found.": "已找到原始视频，但还缺口播稿。",
+    "Online Google Drive has raw footage and script/transcript material.": "原始视频和口播稿已齐，可以进入后期。",
+    "Online Google Drive has raw video, voiceover/script, and cover material.": "口播稿、封面图、原始视频都已就绪。",
+    "Some required production items are missing.": "必要素材未齐，需要补充口播稿、封面图或原始视频。",
+    "Project folder needs source material or direction.": "项目文件夹还缺素材或选题方向。",
+    "Cover assets exist, but source footage/script was not found.": "已有封面素材，但缺原始视频或口播稿。",
+  })[reason] || reason;
+
+const hasCoverAsset = (item) => item.source_assets.some((asset) => asset.type === "cover");
+
+const coverSourceLabel = (item) => {
+  const source = item.cover_copy.source;
+  if (source === "cover_image_ocr") return "标题和副标题来自封面图文字识别，可继续人工修改。";
+  if (hasCoverAsset(item)) return "已找到封面图，暂未识别出封面文字；可先点封面预览确认。";
+  if (source === "voiceover_markdown") return "标题和副标题根据口播稿初步提炼，可继续人工修改。";
+  if (source === "project_folder_name") return "当前未读取到口播稿正文，先根据项目名生成候选。";
+  return "标题默认取项目文件夹名，副标题默认留空；下面是可选方向。";
+};
+
+const items = () => state?.batch?.items || [];
+
+const currentDecision = (item) => state?.decisions?.[item.id] || item.decision || {};
+
+const itemAssetCount = (item, type) => item.source_assets.filter((asset) => asset.type === type).length;
+
+const requiredChecks = (item) => item.required_checks || [];
+
+const missingCheck = (item, key) => requiredChecks(item).some((check) => check.key === key && !check.ready);
+
+const allRequiredReady = (item) => requiredChecks(item).length > 0 && requiredChecks(item).every((check) => check.ready);
+
+const hasChannelExport = (item) => item.stage === "distribution_ready";
+
+const isDone = (item) => item.status === "done" || item.stage === "published";
+
+const isWorkflowDone = (item) => currentDecision(item).workflow_done || isDone(item);
+
+const isBlocked = (item) => currentDecision(item).action === "block" || item.status === "blocked";
+
+const coverLocaleValue = (item, decision, locale, key) => {
+  const legacyKey = locale === "zh" && key === "title" ? "cover_title" : locale === "zh" && key === "subtitle" ? "cover_subtitle" : "";
+  const decisionKey = `cover_${locale}_${key}`;
+  return decision[decisionKey] || (legacyKey ? decision[legacyKey] : "") || item.cover_copy?.locales?.[locale]?.[key] || "";
+};
+
+const workflowQueue = (item) => {
+  const decision = currentDecision(item);
+  if (isBlocked(item)) return "blocked";
+  if (isWorkflowDone(item)) return "done";
+  if (hasChannelExport(item)) return "distribution_confirm";
+  if (item.stage === "idea" && decision.workflow_step !== "assigned_recording") {
+    return decision.workflow_step === "topic_selected" ? "assignment" : "topic_board";
+  }
+  if (!allRequiredReady(item)) return "waiting_upload";
+  if (decision.action !== "approve") return "material_review";
+  if (item.cover_copy?.needs_review) return "cover_generation";
+  return "edit_output";
+};
+
+const workflowLabel = (item) =>
+  ({
+    topic_board: "选题表",
+    assignment: "待分配录制",
+    waiting_upload: "待补齐素材",
+    material_review: "待检查素材",
+    cover_generation: "待制作封面",
+    edit_output: "待剪辑输出",
+    distribution_confirm: "待确认分发",
+    done: "已完成",
+    blocked: "阻塞",
+  })[workflowQueue(item)] || "全部";
+
+const nextStepLabel = (item) =>
+  ({
+    topic_board: "确认选题是否要进入录制计划",
+    assignment: "分配录制人和交付时间",
+    waiting_upload: "等待录制人补齐口播稿、原始视频和封面",
+    material_review: "检查三项上传物是否符合后期要求",
+    cover_generation: "根据口播稿调用封面 skill 制作封面",
+    edit_output: "开始剪辑并输出各渠道视频",
+    distribution_confirm: "确认输出文件和分发渠道",
+    done: "流程已完成",
+    blocked: "先处理阻塞原因",
+  })[workflowQueue(item)] || "检查视频状态";
+
+const approveButtonLabel = (item) =>
+  ({
+    topic_board: "确定选题",
+    assignment: "已分配录制",
+    waiting_upload: "素材未齐",
+    material_review: "素材合格",
+    cover_generation: "封面已完成",
+    edit_output: "剪辑已输出",
+    distribution_confirm: "确认分发",
+    done: "已完成",
+    blocked: "已阻塞",
+  })[workflowQueue(item)] || "批准";
+
+const statusDisplayLabel = (item) => {
+  if (isWorkflowDone(item)) return "已完成";
+  if (isBlocked(item)) return "阻塞";
+  return statusLabel(item.status);
+};
+
+const filterMatch = (item, filter) => {
+  if (filter === "all") return true;
+  return workflowQueue(item) === filter;
+};
+
+const requiredCheckSummary = (item) =>
+  requiredChecks(item)
+    .map((check) => `${check.ready ? "✓" : "缺"}${check.label}`)
+    .join(" · ");
+
+const formatBytes = (value) => {
+  const bytes = Number(value || 0);
+  if (!bytes) return "";
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`;
+};
+
+const formatDateTime = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (number) => String(number).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
+const assetTimeLabel = (asset) => {
+  const created = formatDateTime(asset.created_at);
+  const modified = formatDateTime(asset.modified_at);
+  if (created && modified && created !== modified) return `上传 ${created} · 更新 ${modified}`;
+  if (created) return `上传 ${created}`;
+  if (modified) return `更新 ${modified}`;
+  return "";
+};
+
+const canPreviewAsset = (asset) => Boolean(asset.drive_file_id);
+
+const drivePreviewUrl = (fileId) => `https://drive.google.com/file/d/${encodeURIComponent(fileId)}/preview`;
+
+const openFilePreview = (fileId, title) => {
+  const preview = $("#videoPreview");
+  const frame = $("#videoPreviewFrame");
+  const titleNode = $("#videoPreviewTitle");
+  if (!preview || !frame || !titleNode || !fileId) return;
+  titleNode.textContent = title || "文件预览";
+  frame.src = drivePreviewUrl(fileId);
+  preview.hidden = false;
+};
+
+const closeFilePreview = () => {
+  const preview = $("#videoPreview");
+  const frame = $("#videoPreviewFrame");
+  if (!preview || !frame) return;
+  preview.hidden = true;
+  frame.src = "";
+};
+
+const topicBriefHtml = (item) => {
+  const queue = workflowQueue(item);
+  if (!["topic_board", "assignment"].includes(queue)) return "";
+  return `
+    <section class="section compact">
+      <div class="section-title">
+        <h4>选题说明</h4>
+        <p>确认这个方向是否值得进入录制。</p>
+      </div>
+      <div class="brief-box">
+        <p>${escapeHtml(item.summary || item.title)}</p>
+        <ul>
+          <li>目标受众：${escapeHtml(item.target_audience || "待确认")}</li>
+          <li>建议方向：${escapeHtml(item.topic_direction || "待确认")}</li>
+          <li>下一步：${escapeHtml(nextStepLabel(item))}</li>
+        </ul>
+      </div>
+    </section>`;
+};
+
+const recordingBriefHtml = (item) => {
+  const queue = workflowQueue(item);
+  if (!["assignment", "waiting_upload"].includes(queue)) return "";
+  return `
+    <section class="section">
+      <div class="section-title">
+        <h4>录制要求</h4>
+        <p>给录制人的简洁版 SOP。</p>
+      </div>
+      <div class="brief-box">
+        <p>16:9 · 1280 × 720 viewport · 高清录屏 · MP4 优先</p>
+        <ul>
+          <li>浏览器缩放固定 100%，画面不要出现通知、无关窗口、个人信息或水印。</li>
+          <li>录屏动作尽量对应口播稿，关键点击、输入、页面切换处稍微停顿。</li>
+          <li>开头和结尾各预留 1 秒静止画面，方便后期剪辑。</li>
+          <li>交付原始视频、中文口播稿、英文口播稿；视频里不要加字幕。</li>
+          <li>命名暂用 <code>use-case-xx.mp4</code>、<code>use-case-xx-cn.md</code>、<code>use-case-xx-en.md</code>。</li>
+        </ul>
+      </div>
+    </section>`;
+};
+
+const editBriefHtml = (item) => {
+  const queue = workflowQueue(item);
+  if (["topic_board", "assignment", "waiting_upload", "distribution_confirm", "done"].includes(queue)) return "";
+  return `
+    <section class="section">
+      <div class="section-title">
+        <h4>剪辑要求</h4>
+        <p>给后期看的基础 brief。</p>
+      </div>
+      <div class="brief-box">
+        <p>${escapeHtml(item.edit_brief.format)} · ${escapeHtml(item.edit_brief.duration_target)}</p>
+        <ul>
+          ${item.edit_brief.key_beats.map((beat) => `<li>${escapeHtml(beat)}</li>`).join("")}
+        </ul>
+      </div>
+    </section>`;
+};
+
+const requiredChecksHtml = (item) => {
+  const queue = workflowQueue(item);
+  if (["topic_board", "assignment"].includes(queue)) return "";
+  return `
+    <section class="section compact">
+      <div class="section-title">
+        <h4>必要项检查</h4>
+        <p>进入后期前至少确认这三项。</p>
+      </div>
+      <div class="check-grid">
+        ${requiredChecks(item)
+          .map(
+            (check) => `
+              <div class="check-card ${check.ready ? "ready" : "missing"}">
+                <strong>${check.ready ? "已就绪" : "缺失"}</strong>
+                <span>${escapeHtml(check.label)}</span>
+                <small>${escapeHtml(check.ready ? `${check.count} 个文件` : check.hint)}</small>
+              </div>`
+          )
+          .join("")}
+      </div>
+    </section>`;
+};
+
+const assetsHtml = (item, assetsByType) => {
+  const queue = workflowQueue(item);
+  if (queue === "topic_board") return "";
+  if (Object.keys(assetsByType).length === 0) return "";
+  return `
+    <section class="section">
+      <div class="section-title">
+        <h4>素材文件</h4>
+        <p>来自在线 Google Drive，只做读取和引用。</p>
+      </div>
+      <div class="asset-groups">
+        ${Object.entries(assetsByType)
+          .map(
+            ([type, assets]) => `
+              <div class="asset-group">
+                <div class="asset-group-head">
+                  <strong>${escapeHtml(assetLabels[type] || type)}</strong>
+                  <span>${assets.length}</span>
+                </div>
+                ${assets
+                  .map(
+                    (asset) => `
+                      <div class="asset-link">
+                        <div class="asset-main">
+                          <span class="asset-name">${escapeHtml(asset.name)}</span>
+                          <small class="asset-path">${escapeHtml(asset.path)}</small>
+                          <small class="asset-time">${escapeHtml(assetTimeLabel(asset))}</small>
+                        </div>
+                        <div class="asset-side">
+                          <small class="asset-size">${escapeHtml(formatBytes(asset.size))}</small>
+                          <div class="asset-actions">
+                            ${
+                              canPreviewAsset(asset)
+                                ? `<button type="button" class="asset-action" data-preview-file="${escapeHtml(asset.drive_file_id)}" data-preview-title="${escapeHtml(asset.name)}">预览</button>`
+                                : ""
+                            }
+                            <a class="asset-action" href="${escapeHtml(asset.absolute_path)}" target="_blank" rel="noreferrer">打开</a>
+                          </div>
+                        </div>
+                      </div>`
+                  )
+                  .join("")}
+              </div>`
+          )
+          .join("")}
+      </div>
+    </section>`;
+};
+
+const coverCopyHtml = (item, decision, locked) => {
+  const queue = workflowQueue(item);
+  if (["topic_board", "assignment", "waiting_upload"].includes(queue)) return "";
+  const zhTitle = coverLocaleValue(item, decision, "zh", "title") || item.cover_copy.title;
+  const zhSubtitle = coverLocaleValue(item, decision, "zh", "subtitle") || item.cover_copy.subtitle || "";
+  const enTitle = coverLocaleValue(item, decision, "en", "title");
+  const enSubtitle = coverLocaleValue(item, decision, "en", "subtitle");
+  return `
+    <section class="section form-section">
+      <div class="section-title">
+        <h4>封面文案</h4>
+        <p class="source-note">${escapeHtml(coverSourceLabel(item))}</p>
+      </div>
+      <div class="form-grid">
+        <label class="field">
+          <span>中文标题</span>
+          <input id="coverZhTitle" value="${escapeHtml(zhTitle)}" ${locked ? "disabled" : ""} />
+          <small>用于中文封面，可直接改成面向观众的标题。</small>
+        </label>
+        <label class="field">
+          <span>中文副标题</span>
+          <input id="coverZhSubtitle" value="${escapeHtml(zhSubtitle)}" placeholder="可选：补一句利益点或使用场景" ${locked ? "disabled" : ""} />
+          <small>不确定就留空，交给封面设计时再定。</small>
+        </label>
+        <label class="field">
+          <span>English title</span>
+          <input id="coverEnTitle" value="${escapeHtml(enTitle)}" placeholder="Optional English cover title" ${locked ? "disabled" : ""} />
+          <small>从英文封面文字识别；没读到就留空。</small>
+        </label>
+        <label class="field">
+          <span>English subtitle</span>
+          <input id="coverEnSubtitle" value="${escapeHtml(enSubtitle)}" placeholder="Optional English subtitle" ${locked ? "disabled" : ""} />
+          <small>用于英文封面，支持人工补充。</small>
+        </label>
+      </div>
+      <div class="copy-suggestions">
+        <span>备选方向</span>
+        <div>
+          ${item.cover_copy.variants.map((variant) => `<button type="button" class="copy-chip" data-cover-title-target="coverZhTitle" data-cover-title="${escapeHtml(variant)}">${escapeHtml(variant)}</button>`).join("")}
+        </div>
+      </div>
+    </section>`;
+};
+
+const outputsHtml = (item, selectedOutputs, locked) => {
+  const queue = workflowQueue(item);
+  if (!["distribution_confirm", "done"].includes(queue)) return "";
+  return `
+    <section class="section">
+      <div class="section-title">
+        <h4>输出渠道</h4>
+        <p>勾选这条视频要交付的平台规格。</p>
+      </div>
+      <div class="output-grid">
+        ${item.outputs
+          .map(
+            (output) => `
+          <label class="output-row">
+            <span class="output-main">
+              <input type="checkbox" data-output="${escapeHtml(output.channel)}" ${selectedOutputs.has(output.channel) ? "checked" : ""} ${locked ? "disabled" : ""} />
+              <span>${escapeHtml(output.channel)}</span>
+            </span>
+            <small>${escapeHtml(output.aspect_ratio)} · ${output.caption ? "字幕" : "无字幕"} · ${output.cover_required ? "要封面" : "不强制封面"}</small>
+          </label>`
+          )
+          .join("")}
+      </div>
+    </section>`;
+};
+
+const reviewNoteLabel = (item) => {
+  const queue = workflowQueue(item);
+  if (queue === "topic_board") return "选题备注";
+  if (queue === "assignment") return "分配备注";
+  if (queue === "waiting_upload") return "录制备注";
+  return "审核备注";
+};
+
+const reviewNoteHint = (item) => {
+  const queue = workflowQueue(item);
+  if (queue === "topic_board") return "记录选题判断、受众、角度或是否需要先放弃。";
+  if (queue === "assignment") return "记录录制人、交付时间或录制注意事项。";
+  if (queue === "waiting_upload") return "记录还缺什么素材、谁来补、什么时候补齐。";
+  return "写给后期、设计或分发同事看的具体动作。";
+};
+
+const filteredItems = () =>
+  items().filter((item) => {
+    const text = `${item.title} ${item.summary} ${item.stage} ${item.status} ${item.outputs
+      .map((output) => output.channel)
+      .join(" ")}`.toLowerCase();
+    const matchesSearch = !search || text.includes(search.toLowerCase());
+    const matchesFilter = filterMatch(item, activeFilter);
+    return matchesSearch && matchesFilter;
+  });
+
+const renderFilters = () => {
+  const counts = Object.fromEntries(filters.map(([key]) => [key, items().filter((item) => filterMatch(item, key)).length]));
+
+  $("#filters").innerHTML = filters
+    .map(
+      ([key, label]) => `
+        <button class="filter-button ${activeFilter === key ? "active" : ""}" data-filter="${key}" title="Filter: ${label}">
+          <span>${label}</span>
+          <span class="count">${counts[key] || 0}</span>
+        </button>`
+    )
+    .join("");
+
+  document.querySelectorAll("[data-filter]").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeFilter = button.dataset.filter;
+      render();
+    });
+  });
+};
+
+const renderSettings = () => {
+  const summary = state?.batch?.config_summary;
+  if (!summary) {
+    $("#settings").innerHTML = "";
+    return;
+  }
+
+  $("#settings").innerHTML = `
+    <h3>规则和数据源</h3>
+    <dl>
+      <div>
+        <dt>数据源</dt>
+        <dd>${escapeHtml(summary.data_reader)}</dd>
+      </div>
+      <div>
+        <dt>Drive 模式</dt>
+        <dd>${escapeHtml(summary.google_drive?.mode || "")}</dd>
+      </div>
+      <div>
+        <dt>在线授权</dt>
+        <dd>${summary.google_drive?.online_ready ? "已连接" : "需配置"}</dd>
+      </div>
+      <div>
+        <dt>渠道</dt>
+        <dd>${escapeHtml((summary.channels || []).join(", "))}</dd>
+      </div>
+    </dl>`;
+};
+
+const renderMetrics = () => {
+  const all = items();
+  const value = (predicate) => all.filter(predicate).length;
+  const cards = [
+    ["总项目", all.length, "云端硬盘文件夹"],
+    ["待检查素材", value((item) => workflowQueue(item) === "material_review"), "三项上传物已齐"],
+    ["待确认分发", value((item) => workflowQueue(item) === "distribution_confirm"), "已有剪辑输出"],
+  ];
+
+  $("#metrics").innerHTML = cards
+    .map(
+      ([label, count, hint]) => `
+        <div class="metric-card">
+          <span>${escapeHtml(label)}</span>
+          <strong>${count}</strong>
+          <small>${escapeHtml(hint)}</small>
+        </div>`
+    )
+    .join("");
+};
+
+const renderList = () => {
+  const list = filteredItems();
+
+  $("#videoList").innerHTML =
+    `<div class="list-header">
+      <span>视频项目</span>
+      <span>阶段</span>
+      <span>状态</span>
+      <span>口播稿</span>
+      <span>封面图</span>
+      <span>原始视频</span>
+      <span>提示</span>
+    </div>` +
+    (list
+      .map((item) => {
+        const decision = currentDecision(item);
+        const missingRequired = requiredChecks(item).filter((check) => !check.ready);
+        return `
+        <button class="video-row ${activeId === item.id ? "active" : ""}" data-id="${item.id}" data-stage="${escapeHtml(item.stage)}">
+          <div class="video-main">
+            <div class="queue-code">${escapeHtml(item.ref)}</div>
+            <div class="row-title">${escapeHtml(item.title)}</div>
+            <p class="row-summary">${escapeHtml(reasonLabel(item.reason))}</p>
+          </div>
+          <div class="stage-cell" data-label="阶段">
+            <span class="stage-text">${escapeHtml(workflowLabel(item))}</span>
+          </div>
+          <div class="status-cell" data-label="状态">
+            <span class="status-text">${escapeHtml(statusDisplayLabel(item))}</span>
+          </div>
+          ${requiredChecks(item)
+            .map((check) => `
+              <div class="asset-cell" data-label="${escapeHtml(check.label)}">
+                <span class="asset-state ${check.ready ? "ready" : "missing"}">${check.ready ? "✓" : "缺"} ${escapeHtml(check.label)}</span>
+              </div>`)
+            .join("")}
+          <div class="action-cell" data-label="提示">
+            ${
+              decision.action
+                ? `<span class="hint-text decision">${escapeHtml(decisionDisplayLabel(item, decision))}</span>`
+                : missingRequired.length
+                  ? `<span class="hint-text risk">缺 ${missingRequired.length} 项</span>`
+                  : `<span class="hint-text muted">正常</span>`
+            }
+          </div>
+        </button>`;
+      })
+      .join("") ||
+    `<div class="empty-state"><h3>没有视频</h3><p>当前筛选下没有匹配项目。</p></div>`);
+
+  document.querySelectorAll("[data-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeId = button.dataset.id;
+      detailOpen = true;
+      render();
+    });
+  });
+};
+
+const onboardingHtml = () => {
+  const onboarding = state?.batch?.onboarding;
+  if (!onboarding?.required) return "";
+
+  return `
+    <div class="notice">
+      <strong>需要配置。</strong>
+      <p>${escapeHtml(onboarding.reasons.join(" "))}</p>
+      <p>请配置私有 config，并设置 <code>google_drive.root_folder_id</code> 与 Google Drive OAuth。</p>
+    </div>`;
+};
+
+const renderDetail = () => {
+  const item = items().find((candidate) => candidate.id === activeId);
+  $("#detailPane").classList.toggle("open", Boolean(detailOpen && item));
+  $("#drawerBackdrop").hidden = !Boolean(detailOpen && item);
+  if (!item || !detailOpen) {
+    $("#detailPane").innerHTML = `${onboardingHtml()}<div class="empty-state"><h3>选择一个视频</h3><p>点击卡片后查看规则、素材、封面和分发渠道。</p></div>`;
+    return;
+  }
+
+  const locked = Boolean(state?.lock);
+  const decision = currentDecision(item);
+  const selectedOutputs = decision.outputs?.length ? new Set(decision.outputs) : new Set(item.outputs.map((output) => output.channel));
+  const assetsByType = item.source_assets.reduce((groups, asset) => {
+    const key = asset.type;
+    groups[key] = groups[key] || [];
+    groups[key].push(asset);
+    return groups;
+  }, {});
+  const missingRequired = requiredChecks(item).filter((check) => !check.ready);
+  const queue = workflowQueue(item);
+  const approveDisabled = locked || isWorkflowDone(item) || queue === "waiting_upload";
+
+  $("#detailPane").innerHTML = `
+    ${onboardingHtml()}
+    <div class="drawer-top">
+      <div>
+        <span class="drawer-kicker">视频详情</span>
+        <strong>${escapeHtml(item.ref)}</strong>
+      </div>
+      <button class="drawer-close" id="closeDetail" aria-label="关闭详情" title="关闭详情">×</button>
+    </div>
+    <div class="detail-header">
+      <div>
+        <h3>${escapeHtml(item.title)}</h3>
+        <p>${escapeHtml(reasonLabel(item.reason))}</p>
+      </div>
+      <div class="detail-state-line">
+        <span>${escapeHtml(workflowLabel(item))}</span>
+        <span>${escapeHtml(statusDisplayLabel(item))}</span>
+      </div>
+    </div>
+
+    <section class="decision-summary single">
+      <span>下一步</span>
+      <strong>${escapeHtml(nextStepLabel(item))}</strong>
+    </section>
+
+    ${topicBriefHtml(item)}
+
+    ${requiredChecksHtml(item)}
+
+    ${recordingBriefHtml(item)}
+
+    ${assetsHtml(item, assetsByType)}
+
+    ${editBriefHtml(item)}
+
+    ${coverCopyHtml(item, decision, locked)}
+
+    ${outputsHtml(item, selectedOutputs, locked)}
+
+    <section class="section">
+      <div class="section-title">
+        <h4>${escapeHtml(reviewNoteLabel(item))}</h4>
+        <p>${escapeHtml(reviewNoteHint(item))}</p>
+      </div>
+      <textarea id="reviewNote" ${locked ? "disabled" : ""} placeholder="${escapeHtml(reviewNoteHint(item))}">${escapeHtml(decision.comment || "")}</textarea>
+    </section>
+
+    <div class="drawer-actions">
+      <button class="action-button primary" data-action="approve" ${approveDisabled ? "disabled" : ""} title="${queue === "waiting_upload" ? "口播稿、封面图、原始视频齐了以后再进入下一步" : isWorkflowDone(item) ? "这条视频已确认完成" : "确认进入下一步"}">${escapeHtml(approveButtonLabel(item))}</button>
+      <button class="action-button" data-action="revise" ${locked ? "disabled" : ""} title="保存修改意见">要修改</button>
+      <button class="action-button danger" data-action="block" ${locked ? "disabled" : ""} title="缺素材或方向，先阻塞">阻塞</button>
+      <button class="action-button" data-action="no_action" ${locked ? "disabled" : ""} title="这条暂时跳过">跳过</button>
+    </div>`;
+
+  document.querySelectorAll("[data-action]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await saveDecision(item.id, button.dataset.action);
+    });
+  });
+  document.querySelectorAll("[data-preview-file]").forEach((button) => {
+    button.addEventListener("click", () => {
+      openFilePreview(button.dataset.previewFile, button.dataset.previewTitle);
+    });
+  });
+  $("#closeDetail")?.addEventListener("click", () => {
+    detailOpen = false;
+    render();
+  });
+  document.querySelectorAll("[data-cover-title]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const input = $(`#${button.dataset.coverTitleTarget || "coverZhTitle"}`);
+      if (input && !locked) {
+        input.value = button.dataset.coverTitle || "";
+        input.focus();
+      }
+    });
+  });
+};
+
+const saveDecision = async (id, action) => {
+  const item = items().find((candidate) => candidate.id === id);
+  const decision = item ? currentDecision(item) : {};
+  const outputs = [...document.querySelectorAll("[data-output]:checked")].map((input) => input.dataset.output);
+  const queue = item ? workflowQueue(item) : "";
+  const workflowDone = Boolean(item && action === "approve" && queue === "distribution_confirm");
+  const workflowStep =
+    action === "approve" && queue === "topic_board"
+      ? "topic_selected"
+      : action === "approve" && queue === "assignment"
+        ? "assigned_recording"
+        : decision.workflow_step || "";
+  const response = await fetch("/api/decision", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      id,
+      action,
+      comment: $("#reviewNote")?.value || "",
+      cover_title: $("#coverZhTitle")?.value || "",
+      cover_subtitle: $("#coverZhSubtitle")?.value || "",
+      cover_zh_title: $("#coverZhTitle")?.value || "",
+      cover_zh_subtitle: $("#coverZhSubtitle")?.value || "",
+      cover_en_title: $("#coverEnTitle")?.value || "",
+      cover_en_subtitle: $("#coverEnSubtitle")?.value || "",
+      outputs,
+      workflow_step: workflowStep,
+      workflow_done: workflowDone || Boolean(decision.workflow_done),
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    alert(error.error || "Could not save decision.");
+    return;
+  }
+
+  await loadState({ force: true });
+};
+
+const renderTop = () => {
+  const batch = state?.batch;
+  $("#batchMeta").textContent = batch ? `${batch.items.length} 个视频` : "暂无批次";
+  $("#viewTitle").textContent = filters.find(([key]) => key === activeFilter)?.[1] || "All Videos";
+  $("#viewSubtitle").textContent = batch?.generated_at ? `最近同步：${new Date(batch.generated_at).toLocaleString()}` : "请先同步视频库。";
+
+  const lock = state?.lock;
+  $("#lockStatus").hidden = !lock;
+  $("#lockStatus").textContent = lock ? `同步中：${lock.message}` : "";
+  $("#lockStatus").classList.toggle("locked", Boolean(lock));
+};
+
+const render = () => {
+  if (!filters.some(([key]) => key === activeFilter)) {
+    activeFilter = "all";
+  }
+  renderTop();
+  renderFilters();
+  renderSettings();
+  renderMetrics();
+  renderList();
+  renderDetail();
+};
+
+const loadState = async ({ force = false } = {}) => {
+  if (editing && !force) return;
+  const response = await fetch("/api/state", { cache: "no-store" });
+  state = await response.json();
+  render();
+};
+
+$("#searchInput").addEventListener("input", (event) => {
+  search = event.target.value;
+  render();
+});
+
+$("#drawerBackdrop").addEventListener("click", () => {
+  detailOpen = false;
+  render();
+});
+
+$("#closeVideoPreview")?.addEventListener("click", closeFilePreview);
+
+$("#videoPreview")?.addEventListener("click", (event) => {
+  if (event.target === $("#videoPreview")) {
+    closeFilePreview();
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  if ($("#videoPreview") && !$("#videoPreview").hidden) {
+    closeFilePreview();
+    return;
+  }
+  if (detailOpen) {
+    detailOpen = false;
+    render();
+  }
+});
+
+document.addEventListener("focusin", (event) => {
+  editing = ["INPUT", "TEXTAREA"].includes(event.target.tagName) && event.target.type !== "search";
+});
+
+document.addEventListener("focusout", () => {
+  editing = false;
+});
+
+await loadState();
+setInterval(() => loadState(), 4000);

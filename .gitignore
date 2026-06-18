@@ -1,0 +1,5 @@
+config.local.yml
+*.local.yml
+.env
+.env.local
+app/.cache/

@@ -1,0 +1,5 @@
+name: buda-video-studio
+instructions: |
+  Manage Buda video production through the local App-in-Skill workflow.
+  Prefer generating a batch and launching the local app for review queues.
+  Never publish, delete, upload, or mutate external systems without explicit approval.
