@@ -733,6 +733,13 @@ label {
   padding: 0;
 }
 
+.next-step-summary {
+  margin-top: 26px;
+  margin-bottom: 0;
+  padding-top: 18px;
+  border-top: 1px solid color-mix(in oklch, var(--line-soft) 55%, transparent);
+}
+
 .decision-summary span {
   display: block;
   color: var(--faint);

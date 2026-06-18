@@ -320,8 +320,8 @@ const hasAssets = (assetsByType) => Object.keys(assetsByType).length > 0;
 const stepSummaryHtml = (item) => {
   if (workflowQueue(item) === "done") return "";
   return `
-    <section class="decision-summary single">
-      <span>下一步</span>
+    <section class="decision-summary next-step-summary">
+      <span>后续动作</span>
       <strong>${escapeHtml(nextStepLabel(item))}</strong>
     </section>`;
 };
