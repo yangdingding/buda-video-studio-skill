@@ -899,18 +899,26 @@ const primaryActionCountLabel = (humanItems, blockedItems) => {
   return "待人工处理";
 };
 
+const primaryActionItems = (humanItems, blockedItems) => {
+  if (blockedItems.length) return blockedItems;
+
+  const primaryQueue = workflowPriority.find((queue) => humanItems.some((item) => workflowQueue(item) === queue));
+  return primaryQueue ? humanItems.filter((item) => workflowQueue(item) === primaryQueue) : humanItems;
+};
+
 const renderActionPanel = () => {
   const all = items();
   const humanItems = all.filter(needsHumanAction);
   const executionItems = all.filter(readyForSkillExecution);
   const blockedItems = all.filter(isBlocked);
+  const primaryItems = primaryActionItems(humanItems, blockedItems);
 
   $("#approvalPanel").innerHTML = `
     <div class="approval-kicker">需要你</div>
     <h2>人类操作审批区</h2>
     <p>${escapeHtml(primaryActionLabel(humanItems, blockedItems, executionItems))}</p>
     <div class="approval-primary">
-      <strong>${humanItems.length}</strong>
+      <strong>${primaryItems.length}</strong>
       <span>${escapeHtml(primaryActionCountLabel(humanItems, blockedItems))}</span>
     </div>
     <div class="approval-mini-grid">
