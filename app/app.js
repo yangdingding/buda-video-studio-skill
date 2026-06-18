@@ -431,7 +431,7 @@ const productionMetaHtml = (item, locked) => {
         </label>
         <label>
           <span>负责人</span>
-          <input id="recordingOwner" ${locked ? "disabled" : ""} value="${escapeHtml(owner)}" placeholder="例如：Kelly / 外包剪辑 / 待分配" />
+          <input id="recordingOwner" ${locked ? "disabled" : ""} value="${escapeHtml(owner)}" placeholder="例如：小明 / 小红 / 待分配" />
         </label>
         <label>
           <span>交付时间</span>
@@ -887,6 +887,18 @@ const primaryActionLabel = (humanItems, blockedItems, executionItems) => {
   return "暂无需要你处理的事项";
 };
 
+const primaryActionCountLabel = (humanItems, blockedItems) => {
+  if (blockedItems.length) return "阻塞待处理";
+
+  const primaryQueue = workflowPriority.find((queue) => humanItems.some((item) => workflowQueue(item) === queue));
+  if (primaryQueue === "topic_board") return "待确认选题";
+  if (primaryQueue === "assignment") return "待分配录制";
+  if (primaryQueue === "waiting_upload") return "待补齐素材";
+  if (primaryQueue === "material_review") return "待检查素材";
+  if (primaryQueue === "distribution_confirm") return "待确认分发";
+  return "待人工处理";
+};
+
 const renderActionPanel = () => {
   const all = items();
   const humanItems = all.filter(needsHumanAction);
@@ -899,7 +911,7 @@ const renderActionPanel = () => {
     <p>${escapeHtml(primaryActionLabel(humanItems, blockedItems, executionItems))}</p>
     <div class="approval-primary">
       <strong>${humanItems.length}</strong>
-      <span>待你处理</span>
+      <span>${escapeHtml(primaryActionCountLabel(humanItems, blockedItems))}</span>
     </div>
     <div class="approval-mini-grid">
       <div>
