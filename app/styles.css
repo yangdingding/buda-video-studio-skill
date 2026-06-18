@@ -828,6 +828,77 @@ label {
   color: var(--amber);
 }
 
+.done-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.done-summary-grid > div {
+  display: grid;
+  gap: 4px;
+  border: 1px solid color-mix(in oklch, var(--line) 55%, transparent);
+  border-radius: 8px;
+  background: color-mix(in oklch, var(--panel-soft) 24%, transparent);
+  padding: 10px 12px;
+}
+
+.done-summary-grid span {
+  color: var(--faint);
+  font-size: 11px;
+}
+
+.done-summary-grid strong {
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 400;
+}
+
+.archived-assets {
+  border-top: 1px solid color-mix(in oklch, var(--line-soft) 70%, transparent);
+  padding-top: 14px;
+}
+
+.archived-assets summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  cursor: pointer;
+  color: var(--muted);
+  list-style: none;
+}
+
+.archived-assets summary::-webkit-details-marker {
+  display: none;
+}
+
+.archived-assets summary span {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 450;
+}
+
+.archived-assets summary small {
+  color: var(--faint);
+  font-size: 11px;
+}
+
+.archived-assets summary::after {
+  content: "+";
+  color: var(--faint);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.archived-assets[open] summary::after {
+  content: "-";
+}
+
+.archived-assets-body {
+  margin-top: 12px;
+}
+
 .evidence-line span {
   border: 1px solid var(--line);
   border-radius: 6px;

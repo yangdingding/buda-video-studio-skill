@@ -288,6 +288,15 @@ const requiredCheckSummary = (item) =>
     .map((check) => `${check.ready ? "✓" : "缺"}${check.label}`)
     .join(" · ");
 
+const stepSummaryHtml = (item) => {
+  if (workflowQueue(item) === "done") return "";
+  return `
+    <section class="decision-summary single">
+      <span>下一步</span>
+      <strong>${escapeHtml(nextStepLabel(item))}</strong>
+    </section>`;
+};
+
 const formatBytes = (value) => {
   const bytes = Number(value || 0);
   if (!bytes) return "";
@@ -419,17 +428,8 @@ const requiredChecksHtml = (item) => {
     </section>`;
 };
 
-const assetsHtml = (item, assetsByType) => {
-  const queue = workflowQueue(item);
-  if (queue === "topic_board") return "";
-  if (Object.keys(assetsByType).length === 0) return "";
-  return `
-    <section class="section">
-      <div class="section-title">
-        <h4>素材文件</h4>
-        <p>来自在线 Google Drive，只做读取和引用。</p>
-      </div>
-      <div class="asset-groups">
+const assetGroupsHtml = (assetsByType) => `
+  <div class="asset-groups">
         ${Object.entries(assetsByType)
           .map(
             ([type, assets]) => `
@@ -461,16 +461,44 @@ const assetsHtml = (item, assetsByType) => {
                       </div>`
                   )
                   .join("")}
-              </div>`
+	              </div>`
           )
           .join("")}
+      </div>`;
+
+const assetsHtml = (item, assetsByType) => {
+  const queue = workflowQueue(item);
+  if (queue === "topic_board") return "";
+  if (Object.keys(assetsByType).length === 0) return "";
+  return `
+    <section class="section">
+      <div class="section-title">
+        <h4>素材文件</h4>
+        <p>来自在线 Google Drive，只做读取和引用。</p>
       </div>
+      ${assetGroupsHtml(assetsByType)}
     </section>`;
+};
+
+const archivedAssetsHtml = (item, assetsByType) => {
+  const queue = workflowQueue(item);
+  if (queue !== "done") return "";
+  if (Object.keys(assetsByType).length === 0) return "";
+  return `
+    <details class="section archived-assets">
+      <summary>
+        <span>素材归档</span>
+        <small>需要核对源文件时再展开</small>
+      </summary>
+      <div class="archived-assets-body">
+        ${assetGroupsHtml(assetsByType)}
+      </div>
+    </details>`;
 };
 
 const coverCopyHtml = (item, decision, locked) => {
   const queue = workflowQueue(item);
-  if (["topic_board", "assignment", "waiting_upload"].includes(queue)) return "";
+  if (["topic_board", "assignment", "waiting_upload", "done"].includes(queue)) return "";
   const zhTitle = coverLocaleValue(item, decision, "zh", "title") || item.cover_copy.title;
   const zhSubtitle = coverLocaleValue(item, decision, "zh", "subtitle") || item.cover_copy.subtitle || "";
   const enTitle = coverLocaleValue(item, decision, "en", "title");
@@ -515,11 +543,13 @@ const coverCopyHtml = (item, decision, locked) => {
 const outputsHtml = (item, selectedOutputs, locked) => {
   const queue = workflowQueue(item);
   if (!["distribution_confirm", "done"].includes(queue)) return "";
+  const title = queue === "done" ? "已交付渠道" : "输出渠道";
+  const description = queue === "done" ? "记录这条视频实际交付或发布的平台。" : "勾选这条视频要交付的平台规格。";
   return `
     <section class="section">
       <div class="section-title">
-        <h4>输出渠道</h4>
-        <p>勾选这条视频要交付的平台规格。</p>
+        <h4>${title}</h4>
+        <p>${description}</p>
       </div>
       <div class="output-grid">
         ${item.outputs
@@ -534,6 +564,34 @@ const outputsHtml = (item, selectedOutputs, locked) => {
           </label>`
           )
           .join("")}
+      </div>
+	    </section>`;
+};
+
+const doneSummaryHtml = (item, selectedOutputs) => {
+  const queue = workflowQueue(item);
+  if (queue !== "done") return "";
+  const selectedChannels = item.outputs.filter((output) => selectedOutputs.has(output.channel));
+  const publishedCount = Object.keys(currentDecision(item).published_links || {}).filter((channel) => selectedOutputs.has(channel)).length;
+  return `
+    <section class="section done-summary">
+      <div class="section-title">
+        <h4>分发归档</h4>
+        <p>这条视频已经完成，重点记录发到哪些渠道，以及最终公开链接。</p>
+      </div>
+      <div class="done-summary-grid">
+        <div>
+          <span>已选渠道</span>
+          <strong>${selectedChannels.length || item.outputs.length}</strong>
+        </div>
+        <div>
+          <span>已填链接</span>
+          <strong>${publishedCount}</strong>
+        </div>
+        <div>
+          <span>当前状态</span>
+          <strong>已完成</strong>
+        </div>
       </div>
     </section>`;
 };
@@ -566,7 +624,26 @@ const publishedLinksHtml = (item, locked) => {
           )
           .join("")}
       </div>
-    </section>`;
+	    </section>`;
+};
+
+const detailBodyHtml = (item, assetsByType, selectedOutputs, decision, locked) => {
+  const queue = workflowQueue(item);
+  if (queue === "done") {
+    return `
+      ${doneSummaryHtml(item, selectedOutputs)}
+      ${publishedLinksHtml(item, locked)}
+      ${outputsHtml(item, selectedOutputs, locked)}
+      ${archivedAssetsHtml(item, assetsByType)}`;
+  }
+  return `
+    ${topicBriefHtml(item)}
+    ${requiredChecksHtml(item)}
+    ${recordingBriefHtml(item)}
+    ${assetsHtml(item, assetsByType)}
+    ${editBriefHtml(item)}
+    ${coverCopyHtml(item, decision, locked)}
+    ${outputsHtml(item, selectedOutputs, locked)}`;
 };
 
 const reviewNoteLabel = (item) => {
@@ -574,6 +651,7 @@ const reviewNoteLabel = (item) => {
   if (queue === "topic_board") return "选题备注";
   if (queue === "assignment") return "分配备注";
   if (queue === "waiting_upload") return "录制备注";
+  if (queue === "done") return "归档备注";
   return "审核备注";
 };
 
@@ -582,6 +660,7 @@ const reviewNoteHint = (item) => {
   if (queue === "topic_board") return "记录选题判断、受众、角度或是否需要先放弃。";
   if (queue === "assignment") return "记录录制人、交付时间或录制注意事项。";
   if (queue === "waiting_upload") return "记录还缺什么素材、谁来补、什么时候补齐。";
+  if (queue === "done") return "记录发布后的补充说明、异常或复盘事项。";
   return "写给后期、设计或分发同事看的具体动作。";
 };
 
@@ -796,9 +875,11 @@ const renderDetail = () => {
     groups[key].push(asset);
     return groups;
   }, {});
-  const missingRequired = requiredChecks(item).filter((check) => !check.ready);
-  const queue = workflowQueue(item);
-  const approveDisabled = locked || isWorkflowDone(item) || queue === "waiting_upload";
+	  const missingRequired = requiredChecks(item).filter((check) => !check.ready);
+	  const queue = workflowQueue(item);
+	  const approveDisabled = locked || isWorkflowDone(item) || queue === "waiting_upload";
+	  const workflowText = workflowLabel(item);
+	  const statusText = statusDisplayLabel(item);
 
   $("#detailPane").innerHTML = `
     ${onboardingHtml()}
@@ -813,33 +894,16 @@ const renderDetail = () => {
       <div>
         <h3>${escapeHtml(detailTitle(item))}</h3>
         <p>${escapeHtml(detailDescription(item))}</p>
-      </div>
-      <div class="detail-state-line">
-        <span>${escapeHtml(workflowLabel(item))}</span>
-        <span>${escapeHtml(statusDisplayLabel(item))}</span>
-      </div>
-    </div>
+	      </div>
+	      <div class="detail-state-line">
+	        <span>${escapeHtml(workflowText)}</span>
+	        ${workflowText === statusText ? "" : `<span>${escapeHtml(statusText)}</span>`}
+	      </div>
+	    </div>
+	
+	    ${stepSummaryHtml(item)}
 
-    <section class="decision-summary single">
-      <span>下一步</span>
-      <strong>${escapeHtml(nextStepLabel(item))}</strong>
-    </section>
-
-    ${topicBriefHtml(item)}
-
-    ${requiredChecksHtml(item)}
-
-    ${recordingBriefHtml(item)}
-
-    ${assetsHtml(item, assetsByType)}
-
-    ${editBriefHtml(item)}
-
-    ${coverCopyHtml(item, decision, locked)}
-
-    ${outputsHtml(item, selectedOutputs, locked)}
-
-    ${publishedLinksHtml(item, locked)}
+    ${detailBodyHtml(item, assetsByType, selectedOutputs, decision, locked)}
 
     <section class="section">
       <div class="section-title">
