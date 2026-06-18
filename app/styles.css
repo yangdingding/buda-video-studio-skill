@@ -911,7 +911,7 @@ label {
   display: flex;
   justify-content: space-between;
   gap: 16px;
-  align-items: center;
+  align-items: flex-start;
   cursor: pointer;
   color: var(--muted);
   list-style: none;
@@ -921,21 +921,28 @@ label {
   display: none;
 }
 
-.archived-assets summary span {
+.archived-assets-title {
+  display: grid;
+  gap: 4px;
+}
+
+.archived-assets-title strong {
   color: var(--ink);
   font-size: 13px;
   font-weight: 450;
 }
 
-.archived-assets summary small {
+.archived-assets-title small {
   color: var(--faint);
   font-size: 11px;
+  line-height: 1.4;
 }
 
 .archived-assets summary::after {
   content: "展开";
   color: var(--faint);
   font-size: 11px;
+  padding-top: 2px;
   line-height: 1;
 }
 

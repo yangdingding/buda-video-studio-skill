@@ -514,8 +514,10 @@ const archivedAssetsHtml = (item, assetsByType) => {
   return `
     <details class="section archived-assets">
       <summary>
-        <span>相关素材</span>
-        <small>需要核对源文件时展开查看</small>
+        <span class="archived-assets-title">
+          <strong>相关素材</strong>
+          <small>需要核对源文件时展开查看</small>
+        </span>
       </summary>
       <div class="archived-assets-body">
         ${assetGroupsHtml(assetsByType)}
