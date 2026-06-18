@@ -1120,6 +1120,32 @@ label {
   white-space: nowrap;
 }
 
+.published-link-list {
+  display: grid;
+  gap: 8px;
+}
+
+.published-link-row {
+  display: grid;
+  grid-template-columns: 106px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 4px 0;
+}
+
+.published-link-row span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.published-link-row input {
+  min-height: 34px;
+  border-color: var(--line);
+  background: var(--panel);
+  font-size: 12px;
+  padding: 7px 9px;
+}
+
 .drawer-actions {
   position: fixed;
   right: 0;
@@ -1508,6 +1534,11 @@ textarea:disabled {
 
   .output-grid {
     grid-template-columns: 1fr;
+  }
+
+  .published-link-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
   }
 
   textarea {

@@ -76,6 +76,10 @@ export const saveDecision = async (payload) => {
     cover_en_title: payload.cover_en_title || "",
     cover_en_subtitle: payload.cover_en_subtitle || "",
     outputs: Array.isArray(payload.outputs) ? payload.outputs : [],
+    published_links:
+      payload.published_links && typeof payload.published_links === "object" && !Array.isArray(payload.published_links)
+        ? payload.published_links
+        : previous.published_links || {},
     workflow_step: payload.workflow_step || previous.workflow_step || "",
     workflow_done: Boolean(payload.workflow_done || previous.workflow_done),
     decided_at: new Date().toISOString(),

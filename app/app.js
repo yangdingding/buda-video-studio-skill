@@ -538,6 +538,37 @@ const outputsHtml = (item, selectedOutputs, locked) => {
     </section>`;
 };
 
+const publishedLinksHtml = (item, locked) => {
+  const queue = workflowQueue(item);
+  if (queue !== "done") return "";
+  const decision = currentDecision(item);
+  const selectedOutputs = decision.outputs?.length ? new Set(decision.outputs) : new Set(item.outputs.map((output) => output.channel));
+  const publishedLinks =
+    decision.published_links && typeof decision.published_links === "object" && !Array.isArray(decision.published_links)
+      ? decision.published_links
+      : {};
+  const selected = item.outputs.filter((output) => selectedOutputs.has(output.channel));
+  if (selected.length === 0) return "";
+  return `
+    <section class="section form-section">
+      <div class="section-title">
+        <h4>发布链接</h4>
+        <p>视频已经发出去后，把每个平台的公开链接填在这里。</p>
+      </div>
+      <div class="published-link-list">
+        ${selected
+          .map(
+            (output) => `
+          <label class="published-link-row">
+            <span>${escapeHtml(output.channel)}</span>
+            <input type="url" data-published-link="${escapeHtml(output.channel)}" value="${escapeHtml(publishedLinks[output.channel] || "")}" placeholder="https://..." ${locked ? "disabled" : ""} />
+          </label>`
+          )
+          .join("")}
+      </div>
+    </section>`;
+};
+
 const reviewNoteLabel = (item) => {
   const queue = workflowQueue(item);
   if (queue === "topic_board") return "选题备注";
@@ -808,6 +839,8 @@ const renderDetail = () => {
 
     ${outputsHtml(item, selectedOutputs, locked)}
 
+    ${publishedLinksHtml(item, locked)}
+
     <section class="section">
       <div class="section-title">
         <h4>${escapeHtml(reviewNoteLabel(item))}</h4>
@@ -817,7 +850,11 @@ const renderDetail = () => {
     </section>
 
     <div class="drawer-actions">
-      <button class="action-button primary" data-action="approve" ${approveDisabled ? "disabled" : ""} title="${queue === "waiting_upload" ? "口播稿、封面图、原始视频齐了以后再进入下一步" : isWorkflowDone(item) ? "这条视频已确认完成" : "确认进入下一步"}">${escapeHtml(approveButtonLabel(item))}</button>
+      ${
+        queue === "done"
+          ? `<button class="action-button primary" data-action="${escapeHtml(decision.action || "approve")}" ${locked ? "disabled" : ""} title="保存已发布链接">保存链接</button>`
+          : `<button class="action-button primary" data-action="approve" ${approveDisabled ? "disabled" : ""} title="${queue === "waiting_upload" ? "口播稿、封面图、原始视频齐了以后再进入下一步" : isWorkflowDone(item) ? "这条视频已确认完成" : "确认进入下一步"}">${escapeHtml(approveButtonLabel(item))}</button>`
+      }
       <button class="action-button" data-action="revise" ${locked ? "disabled" : ""} title="保存修改意见">要修改</button>
       <button class="action-button danger" data-action="block" ${locked ? "disabled" : ""} title="缺素材或方向，先阻塞">阻塞</button>
       <button class="action-button" data-action="no_action" ${locked ? "disabled" : ""} title="这条暂时跳过">跳过</button>
@@ -852,6 +889,16 @@ const saveDecision = async (id, action) => {
   const item = items().find((candidate) => candidate.id === id);
   const decision = item ? currentDecision(item) : {};
   const outputs = [...document.querySelectorAll("[data-output]:checked")].map((input) => input.dataset.output);
+  const publishedLinkInputs = [...document.querySelectorAll("[data-published-link]")];
+  const publishedLinks = Object.fromEntries(
+    publishedLinkInputs
+      .map((input) => [input.dataset.publishedLink, input.value.trim()])
+      .filter(([channel, url]) => channel && url)
+  );
+  const previousPublishedLinks =
+    decision.published_links && typeof decision.published_links === "object" && !Array.isArray(decision.published_links)
+      ? decision.published_links
+      : {};
   const queue = item ? workflowQueue(item) : "";
   const workflowDone = Boolean(item && action === "approve" && queue === "distribution_confirm");
   const workflowStep =
@@ -874,6 +921,7 @@ const saveDecision = async (id, action) => {
       cover_en_title: $("#coverEnTitle")?.value || "",
       cover_en_subtitle: $("#coverEnSubtitle")?.value || "",
       outputs,
+      published_links: publishedLinkInputs.length ? publishedLinks : previousPublishedLinks,
       workflow_step: workflowStep,
       workflow_done: workflowDone || Boolean(decision.workflow_done),
     }),

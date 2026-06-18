@@ -10,7 +10,7 @@ Use this skill when the user wants to manage Buda video production work: video t
 This skill follows the App-in-Skill pattern:
 
 - The skill reads the configured online Google Drive video library and prepares a local review batch.
-- The local app is a quiet operator surface for review, notes, approvals, cover copy, and channel decisions.
+- The local app is a quiet operator surface for review, notes, approvals, cover copy, channel decisions, and published-link records.
 - The app reads and writes local handoff files and may sync video decision state to a single Google Drive JSON file.
 - External or irreversible actions require the skill to re-read approvals before executing.
 
@@ -91,10 +91,10 @@ Configuration lookup order:
 ## File Contract
 
 - `app/.cache/current_batch.json`: latest generated video review batch.
-- `app/.cache/decisions.json`: user decisions, notes, and local item edits.
+- `app/.cache/decisions.json`: user decisions, notes, publication links, and local item edits.
 - `app/.cache/execution_report.json`: latest generated briefs/checklists report.
 - `app/.cache/agent.lock`: lock while the skill writes batch/report files.
-- `buda-video-status.json`: optional Google Drive root-level state file used to remember decisions across environments.
+- `buda-video-status.json`: optional Google Drive root-level state file used to remember decisions, completion state, and publication links across environments.
 
 ## Video Stages
 
@@ -123,7 +123,7 @@ Use `references/video-rules.md` as the canonical rule explanation. In short:
 
 ## App Actions
 
-The app stores decisions locally and syncs them to the Drive status file when available. The skill performs approved follow-up work.
+The app stores decisions locally and syncs them to the Drive status file when available. After a video is marked complete, the app can also record the public URL for each selected distribution channel. The skill performs approved follow-up work.
 
 Supported decision actions:
 
