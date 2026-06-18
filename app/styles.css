@@ -828,6 +828,47 @@ label {
   color: var(--amber);
 }
 
+.missing-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.missing-list > div {
+  display: grid;
+  gap: 4px;
+  padding: 0;
+}
+
+.missing-list span {
+  color: var(--amber);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.missing-list small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.queue-guide {
+  color: var(--muted);
+}
+
+.queue-guide ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.queue-guide li {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .done-summary-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -288,6 +288,18 @@ const requiredCheckSummary = (item) =>
     .map((check) => `${check.ready ? "✓" : "缺"}${check.label}`)
     .join(" · ");
 
+const assetTypes = {
+  source: ["raw_video", "voiceover", "script", "transcript", "cover"],
+  sourceCore: ["raw_video", "voiceover", "script", "cover"],
+  exports: ["youtube_export", "shorts_export", "video_account_export"],
+  cover: ["cover"],
+};
+
+const filterAssetsByTypes = (assetsByType, types) =>
+  Object.fromEntries(types.filter((type) => assetsByType[type]?.length).map((type) => [type, assetsByType[type]]));
+
+const hasAssets = (assetsByType) => Object.keys(assetsByType).length > 0;
+
 const stepSummaryHtml = (item) => {
   if (workflowQueue(item) === "done") return "";
   return `
@@ -469,7 +481,7 @@ const assetGroupsHtml = (assetsByType) => `
 const assetsHtml = (item, assetsByType) => {
   const queue = workflowQueue(item);
   if (queue === "topic_board") return "";
-  if (Object.keys(assetsByType).length === 0) return "";
+  if (!hasAssets(assetsByType)) return "";
   return `
     <section class="section">
       <div class="section-title">
@@ -481,9 +493,7 @@ const assetsHtml = (item, assetsByType) => {
 };
 
 const archivedAssetsHtml = (item, assetsByType) => {
-  const queue = workflowQueue(item);
-  if (queue !== "done") return "";
-  if (Object.keys(assetsByType).length === 0) return "";
+  if (!hasAssets(assetsByType)) return "";
   return `
     <details class="section archived-assets">
       <summary>
@@ -495,6 +505,42 @@ const archivedAssetsHtml = (item, assetsByType) => {
       </div>
     </details>`;
 };
+
+const missingFocusHtml = (item) => {
+  const missing = requiredChecks(item).filter((check) => !check.ready);
+  if (missing.length === 0) return "";
+  return `
+    <section class="section compact">
+      <div class="section-title">
+        <h4>当前缺项</h4>
+        <p>先补齐这些内容，后面流程才有意义。</p>
+      </div>
+      <div class="missing-list">
+        ${missing
+          .map(
+            (check) => `
+              <div>
+                <span>${escapeHtml(check.label)}</span>
+                <small>${escapeHtml(check.hint)}</small>
+              </div>`
+          )
+          .join("")}
+      </div>
+    </section>`;
+};
+
+const queueGuideHtml = (title, description, items = []) => `
+  <section class="section queue-guide">
+    <div class="section-title">
+      <h4>${escapeHtml(title)}</h4>
+      <p>${escapeHtml(description)}</p>
+    </div>
+    ${
+      items.length
+        ? `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
+        : ""
+    }
+  </section>`;
 
 const coverCopyHtml = (item, decision, locked) => {
   const queue = workflowQueue(item);
@@ -629,21 +675,70 @@ const publishedLinksHtml = (item, locked) => {
 
 const detailBodyHtml = (item, assetsByType, selectedOutputs, decision, locked) => {
   const queue = workflowQueue(item);
-  if (queue === "done") {
-    return `
+  const sourceAssets = filterAssetsByTypes(assetsByType, assetTypes.source);
+  const sourceCoreAssets = filterAssetsByTypes(assetsByType, assetTypes.sourceCore);
+  const exportAssets = filterAssetsByTypes(assetsByType, assetTypes.exports);
+  const coverAssets = filterAssetsByTypes(assetsByType, assetTypes.cover);
+
+  const bodies = {
+    topic_board: `
+      ${topicBriefHtml(item)}
+      ${queueGuideHtml("选题判断", "这一阶段只看方向本身，不检查素材。", [
+        "是否符合 Buda 当前传播重点",
+        "是否有清楚的受众和使用场景",
+        "是否值得安排录制人继续推进",
+      ])}`,
+    assignment: `
+      ${topicBriefHtml(item)}
+      ${recordingBriefHtml(item)}
+      ${queueGuideHtml("分配录制", "把方向交给具体录制人，并约定交付时间。", [
+        "确认录制人",
+        "确认预计交付时间",
+        "把录制要求同步给对方",
+      ])}`,
+    waiting_upload: `
+      ${missingFocusHtml(item)}
+      ${recordingBriefHtml(item)}
+      ${archivedAssetsHtml(item, sourceAssets)}`,
+    material_review: `
+      ${requiredChecksHtml(item)}
+      ${assetsHtml(item, sourceCoreAssets)}
+      ${queueGuideHtml("检查重点", "确认口播稿、封面和原始视频是否真的能进入后期。", [
+        "口播稿中英文是否齐全、方向是否明确",
+        "原始视频画面是否清楚，是否有敏感信息",
+        "封面图是否是 PNG/JPG/JPEG，是否可继续设计",
+      ])}`,
+    cover_generation: `
+      ${coverCopyHtml(item, decision, locked)}
+      ${archivedAssetsHtml(item, sourceCoreAssets)}`,
+    edit_output: `
+      ${editBriefHtml(item)}
+      ${assetsHtml(item, sourceCoreAssets)}
+      ${archivedAssetsHtml(item, coverAssets)}`,
+    distribution_confirm: `
+      ${outputsHtml(item, selectedOutputs, locked)}
+      ${assetsHtml(item, hasAssets(exportAssets) ? exportAssets : assetsByType)}
+      ${queueGuideHtml("确认分发", "这里确认导出文件和分发渠道，不需要再看剪辑要求。", [
+        "确认每个平台是否有对应导出文件",
+        "确认勾选的平台规格是否正确",
+        "分发完成后再进入已完成并填写公开链接",
+      ])}`,
+    done: `
       ${doneSummaryHtml(item, selectedOutputs)}
       ${publishedLinksHtml(item, locked)}
       ${outputsHtml(item, selectedOutputs, locked)}
-      ${archivedAssetsHtml(item, assetsByType)}`;
-  }
-  return `
-    ${topicBriefHtml(item)}
-    ${requiredChecksHtml(item)}
-    ${recordingBriefHtml(item)}
-    ${assetsHtml(item, assetsByType)}
-    ${editBriefHtml(item)}
-    ${coverCopyHtml(item, decision, locked)}
-    ${outputsHtml(item, selectedOutputs, locked)}`;
+      ${archivedAssetsHtml(item, assetsByType)}`,
+    blocked: `
+      ${queueGuideHtml("阻塞原因", "这条视频暂时不能继续推进，需要先处理备注里的问题。", [
+        "补齐缺失素材或方向",
+        "明确负责人和下一步动作",
+        "解除阻塞后再回到对应流程",
+      ])}
+      ${missingFocusHtml(item)}
+      ${archivedAssetsHtml(item, assetsByType)}`,
+  };
+
+  return bodies[queue] || "";
 };
 
 const reviewNoteLabel = (item) => {
