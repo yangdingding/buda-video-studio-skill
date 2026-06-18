@@ -59,6 +59,23 @@ const escapeHtml = (value) =>
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
 
+const normalizeSavedOutputs = (item, decision) => {
+  const validChannels = new Set((item.outputs || []).map((output) => output.channel));
+  const selected = new Set();
+  const saved = Array.isArray(decision?.outputs) ? decision.outputs : [];
+
+  for (const channel of saved) {
+    if (channel === "YouTube") {
+      if (validChannels.has("YouTube 中文")) selected.add("YouTube 中文");
+      if (validChannels.has("YouTube English")) selected.add("YouTube English");
+      continue;
+    }
+    if (validChannels.has(channel)) selected.add(channel);
+  }
+
+  return selected;
+};
+
 const stageLabel = (stage) =>
   ({
     idea: "选题",
@@ -497,8 +514,8 @@ const archivedAssetsHtml = (item, assetsByType) => {
   return `
     <details class="section archived-assets">
       <summary>
-        <span>素材归档</span>
-        <small>需要核对源文件时再展开</small>
+        <span>相关素材</span>
+        <small>需要核对源文件时展开查看</small>
       </summary>
       <div class="archived-assets-body">
         ${assetGroupsHtml(assetsByType)}
@@ -628,7 +645,7 @@ const doneSummaryHtml = (item, selectedOutputs) => {
       <div class="done-summary-grid">
         <div>
           <span>已选渠道</span>
-          <strong>${selectedChannels.length || item.outputs.length}</strong>
+          <strong>${selectedChannels.length}</strong>
         </div>
         <div>
           <span>已填链接</span>
@@ -646,13 +663,21 @@ const publishedLinksHtml = (item, locked) => {
   const queue = workflowQueue(item);
   if (queue !== "done") return "";
   const decision = currentDecision(item);
-  const selectedOutputs = decision.outputs?.length ? new Set(decision.outputs) : new Set(item.outputs.map((output) => output.channel));
+  const selectedOutputs = normalizeSavedOutputs(item, decision);
   const publishedLinks =
     decision.published_links && typeof decision.published_links === "object" && !Array.isArray(decision.published_links)
       ? decision.published_links
       : {};
   const selected = item.outputs.filter((output) => selectedOutputs.has(output.channel));
-  if (selected.length === 0) return "";
+  if (selected.length === 0) {
+    return `
+    <section class="section form-section">
+      <div class="section-title">
+        <h4>发布链接</h4>
+        <p>先在已交付渠道里勾选已经发布的平台，再填写公开链接。</p>
+      </div>
+    </section>`;
+  }
   return `
     <section class="section form-section">
       <div class="section-title">
@@ -665,7 +690,7 @@ const publishedLinksHtml = (item, locked) => {
             (output) => `
           <label class="published-link-row">
             <span>${escapeHtml(output.channel)}</span>
-            <input type="url" data-published-link="${escapeHtml(output.channel)}" value="${escapeHtml(publishedLinks[output.channel] || "")}" placeholder="https://..." ${locked ? "disabled" : ""} />
+            <input type="url" data-published-link="${escapeHtml(output.channel)}" value="${escapeHtml(publishedLinks[output.channel] || (output.channel.startsWith("YouTube ") ? publishedLinks.YouTube || "" : ""))}" placeholder="https://..." ${locked ? "disabled" : ""} />
           </label>`
           )
           .join("")}
@@ -725,8 +750,8 @@ const detailBodyHtml = (item, assetsByType, selectedOutputs, decision, locked) =
       ])}`,
     done: `
       ${doneSummaryHtml(item, selectedOutputs)}
-      ${publishedLinksHtml(item, locked)}
       ${outputsHtml(item, selectedOutputs, locked)}
+      ${publishedLinksHtml(item, locked)}
       ${archivedAssetsHtml(item, assetsByType)}`,
     blocked: `
       ${queueGuideHtml("阻塞原因", "这条视频暂时不能继续推进，需要先处理备注里的问题。", [
@@ -963,7 +988,7 @@ const renderDetail = () => {
 
   const locked = Boolean(state?.lock);
   const decision = currentDecision(item);
-  const selectedOutputs = decision.outputs?.length ? new Set(decision.outputs) : new Set(item.outputs.map((output) => output.channel));
+  const selectedOutputs = normalizeSavedOutputs(item, decision);
   const assetsByType = item.source_assets.reduce((groups, asset) => {
     const key = asset.type;
     groups[key] = groups[key] || [];
@@ -995,10 +1020,8 @@ const renderDetail = () => {
 	        ${workflowText === statusText ? "" : `<span>${escapeHtml(statusText)}</span>`}
 	      </div>
 	    </div>
-	
-	    ${stepSummaryHtml(item)}
-
     ${detailBodyHtml(item, assetsByType, selectedOutputs, decision, locked)}
+    ${stepSummaryHtml(item)}
 
     <section class="section">
       <div class="section-title">

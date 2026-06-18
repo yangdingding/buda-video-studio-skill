@@ -63,12 +63,14 @@ video_rules:
   default_long_form_duration: "3-5 min full cut; 30-60s short cuts"
 
 channels:
-  - "YouTube"
+  - "YouTube 中文"
+  - "YouTube English"
   - "YouTube Shorts"
   - "LinkedIn"
   - "小红书"
   - "视频号"
-  - "Bilibili"
+  - "Facebook"
+  - "Instagram"
 
 style:
   cover_tone: "清晰、强利益点、适合创始人和增长负责人"
