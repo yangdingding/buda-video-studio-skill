@@ -358,6 +358,21 @@ const assetTimeLabel = (asset) => {
   return "";
 };
 
+const joinAccount = (name, email) => [name, email].filter(Boolean).join(" · ");
+
+const assetAccountLabel = (asset) => {
+  const uploadedBy = joinAccount(asset.uploaded_by_name, asset.uploaded_by_email);
+  if (uploadedBy) return `创建/上传账号 ${uploadedBy}`;
+
+  const createdBy = joinAccount(asset.created_by_name, asset.created_by_email);
+  if (createdBy) return `创建账号 ${createdBy}`;
+
+  const owner = joinAccount(asset.owner_name, asset.owner_email);
+  if (owner) return `文件归属账号 ${owner}`;
+
+  return "";
+};
+
 const canPreviewAsset = (asset) => Boolean(asset.drive_file_id);
 
 const drivePreviewUrl = (fileId) => `https://drive.google.com/file/d/${encodeURIComponent(fileId)}/preview`;
@@ -529,6 +544,11 @@ const assetGroupsHtml = (assetsByType) => `
                           <span class="asset-name">${escapeHtml(asset.name)}</span>
                           <small class="asset-path">${escapeHtml(asset.path)}</small>
                           <small class="asset-time">${escapeHtml(assetTimeLabel(asset))}</small>
+                          ${
+                            assetAccountLabel(asset)
+                              ? `<small class="asset-account">${escapeHtml(assetAccountLabel(asset))}</small>`
+                              : ""
+                          }
                         </div>
                         <div class="asset-side">
                           <small class="asset-size">${escapeHtml(formatBytes(asset.size))}</small>

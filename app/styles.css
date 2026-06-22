@@ -1106,7 +1106,8 @@ label {
 
 .asset-name,
 .asset-path,
-.asset-time {
+.asset-time,
+.asset-account {
   overflow-wrap: anywhere;
 }
 
@@ -1131,6 +1132,12 @@ label {
 
 .asset-time {
   color: var(--faint);
+  font-size: 10.5px;
+  line-height: 1.2;
+}
+
+.asset-account {
+  color: color-mix(in oklch, var(--muted) 82%, var(--accent));
   font-size: 10.5px;
   line-height: 1.2;
 }
