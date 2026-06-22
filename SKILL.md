@@ -119,7 +119,8 @@ Use `references/video-rules.md` as the canonical rule explanation. In short:
 4. Show the human workflow as: `选题表` -> `待分配录制` -> `待录制` -> `待补齐素材` -> `待检查素材` -> `待剪辑输出` -> `剪辑中` -> `待制作封面` -> `待确认分发`.
 5. Apply asset priority: channel export plus cover -> distribution confirmation; channel export without cover -> cover production; all three required production items present -> post-production; partial source material -> idea/recording queues.
 6. Add human-readable missing-item risks when a required item is absent.
-7. Keep the app read/write only over local handoff files; external actions remain skill-side and approval-gated.
+7. Allow a human override from `待补齐素材` to `剪辑中` only when voiceover/script evidence and raw video are present and the only missing required item is the cover.
+8. Keep the app read/write only over local handoff files; external actions remain skill-side and approval-gated.
 
 ## App Actions
 

@@ -252,7 +252,16 @@ const requiredChecks = (item) => item.required_checks || [];
 
 const missingCheck = (item, key) => requiredChecks(item).some((check) => check.key === key && !check.ready);
 
+const hasReadyCheck = (item, key) => requiredChecks(item).some((check) => check.key === key && check.ready);
+
+const missingRequiredKeys = (item) => requiredChecks(item).filter((check) => !check.ready).map((check) => check.key);
+
 const allRequiredReady = (item) => requiredChecks(item).length > 0 && requiredChecks(item).every((check) => check.ready);
+
+const canStartEditingWithoutCover = (item) => {
+  const missing = missingRequiredKeys(item);
+  return missing.length === 1 && missing[0] === "cover" && hasReadyCheck(item, "voiceover") && hasReadyCheck(item, "raw_video");
+};
 
 const hasChannelExport = (item) => item.stage === "distribution_ready";
 
@@ -280,9 +289,9 @@ const workflowQueue = (item) => {
     return decision.workflow_step === "topic_selected" ? "assignment" : "topic_board";
   }
   if (!hasAnySourceAsset(item) && hasManualProductionPlan(item)) return "recording";
-  if (!allRequiredReady(item)) return "waiting_upload";
   if (decision.workflow_step === "editing") return "editing";
   if (decision.workflow_step === "cover_done") return "editing";
+  if (!allRequiredReady(item)) return "waiting_upload";
   if (decision.workflow_step === "material_reviewed") return "edit_output";
   if (decision.action !== "approve") return "material_review";
   return "edit_output";
@@ -348,8 +357,10 @@ const detailDescription = (item) =>
     blocked: "先处理阻塞原因。",
   })[workflowQueue(item)] || reasonLabel(item.reason);
 
-const approveButtonLabel = (item) =>
-  ({
+const approveButtonLabel = (item) => {
+  const queue = workflowQueue(item);
+  if (queue === "waiting_upload" && canStartEditingWithoutCover(item)) return "先开始剪辑";
+  return ({
     topic_board: "确定选题",
     assignment: "已分配录制",
     recording: "等待上传",
@@ -361,7 +372,8 @@ const approveButtonLabel = (item) =>
     distribution_confirm: "确认分发",
     done: "已完成",
     blocked: "已阻塞",
-  })[workflowQueue(item)] || "批准";
+  })[queue] || "批准";
+};
 
 const statusDisplayLabel = (item) => {
   if (isWorkflowDone(item)) return "已完成";
@@ -1344,7 +1356,9 @@ const renderDetail = () => {
   }, {});
 	  const missingRequired = requiredChecks(item).filter((check) => !check.ready);
 	  const queue = workflowQueue(item);
-	  const approveDisabled = locked || isWorkflowDone(item) || ["recording", "waiting_upload", "editing"].includes(queue);
+	  const allowManualEditing = queue === "waiting_upload" && canStartEditingWithoutCover(item);
+	  const approveDisabled =
+	    locked || isWorkflowDone(item) || ["recording", "editing"].includes(queue) || (queue === "waiting_upload" && !allowManualEditing);
 	  const workflowText = workflowLabel(item);
 	  const statusText = statusDisplayLabel(item);
 
@@ -1382,8 +1396,9 @@ const renderDetail = () => {
       ${
         queue === "done"
           ? `<button class="action-button primary" data-action="${escapeHtml(decision.action || "approve")}" ${locked ? "disabled" : ""} title="保存已发布链接">保存链接</button>`
-          : `<button class="action-button primary" data-action="approve" ${approveDisabled ? "disabled" : ""} title="${queue === "recording" ? "录制人上传素材后会进入下一步" : queue === "waiting_upload" ? "口播稿、封面图、原始视频齐了以后再进入下一步" : queue === "editing" ? "等渠道导出视频出现后自动进入下一步" : isWorkflowDone(item) ? "这条视频已确认完成" : "确认进入下一步"}">${escapeHtml(approveButtonLabel(item))}</button>`
+          : `<button class="action-button primary" data-action="approve" ${approveDisabled ? "disabled" : ""} title="${queue === "recording" ? "录制人上传素材后会进入下一步" : queue === "waiting_upload" ? (allowManualEditing ? "口播稿和原始视频已齐，可以先进入剪辑；封面后补" : "口播稿和原始视频至少齐了以后再进入剪辑") : queue === "editing" ? "等渠道导出视频出现后自动进入下一步" : isWorkflowDone(item) ? "这条视频已确认完成" : "确认进入下一步"}">${escapeHtml(approveButtonLabel(item))}</button>`
       }
+      ${queue === "done" ? "" : `<button class="action-button" data-save-only="true" data-action="${escapeHtml(decision.action || "")}" ${locked ? "disabled" : ""} title="只保存负责人、交付时间、录制状态和备注，不推进流程">保存信息</button>`}
       <button class="action-button" data-action="revise" ${locked ? "disabled" : ""} title="保存修改意见">要修改</button>
       <button class="action-button danger" data-action="block" ${locked ? "disabled" : ""} title="缺素材或方向，先阻塞">阻塞</button>
       <button class="action-button" data-action="no_action" ${locked ? "disabled" : ""} title="这条暂时跳过">跳过</button>
@@ -1391,7 +1406,7 @@ const renderDetail = () => {
 
   document.querySelectorAll("[data-action]").forEach((button) => {
     button.addEventListener("click", async () => {
-      await saveDecision(item.id, button.dataset.action);
+      await saveDecision(item.id, button.dataset.action, { saveOnly: button.dataset.saveOnly === "true" });
     });
   });
   document.querySelectorAll("[data-preview-file]").forEach((button) => {
@@ -1414,7 +1429,12 @@ const renderDetail = () => {
   });
 };
 
-const saveDecision = async (id, action) => {
+const inputValue = (selector, fallback = "") => {
+  const element = $(selector);
+  return element ? element.value : fallback;
+};
+
+const saveDecision = async (id, action, options = {}) => {
   const item = items().find((candidate) => candidate.id === id);
   const decision = item ? currentDecision(item) : {};
   const outputs = [...document.querySelectorAll("[data-output]:checked")].map((input) => input.dataset.output);
@@ -1429,22 +1449,25 @@ const saveDecision = async (id, action) => {
       ? decision.published_links
       : {};
   const queue = item ? workflowQueue(item) : "";
-  const workflowDone = Boolean(item && action === "approve" && queue === "distribution_confirm");
+  const effectiveAction = options.saveOnly ? decision.action || "" : action;
+  const workflowDone = Boolean(item && effectiveAction === "approve" && queue === "distribution_confirm");
   const workflowStep =
-    action === "approve" && queue === "topic_board"
+    effectiveAction === "approve" && queue === "topic_board"
       ? "topic_selected"
-      : action === "approve" && queue === "assignment"
+      : effectiveAction === "approve" && queue === "assignment"
         ? "assigned_recording"
-        : action === "approve" && queue === "material_review"
+        : effectiveAction === "approve" && queue === "waiting_upload" && item && canStartEditingWithoutCover(item)
+          ? "editing"
+          : effectiveAction === "approve" && queue === "material_review"
           ? "material_reviewed"
-          : action === "approve" && queue === "edit_output"
+          : effectiveAction === "approve" && queue === "edit_output"
             ? "editing"
-            : action === "approve" && queue === "cover_generation"
+            : effectiveAction === "approve" && queue === "cover_generation"
               ? "cover_done"
               : decision.workflow_step || "";
-  const selectedRecordingStatus = $("#recordingStatus")?.value || decision.recording_status || "";
+  const selectedRecordingStatus = inputValue("#recordingStatus", decision.recording_status || "");
   const recordingStatus =
-    action === "approve" && queue === "assignment" && (!selectedRecordingStatus || selectedRecordingStatus === "未分配")
+    effectiveAction === "approve" && queue === "assignment" && (!selectedRecordingStatus || selectedRecordingStatus === "未分配")
       ? "已分配"
       : selectedRecordingStatus;
   const response = await fetch("/api/decision", {
@@ -1452,19 +1475,19 @@ const saveDecision = async (id, action) => {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       id,
-      action,
-      comment: $("#reviewNote")?.value || "",
-      topic_decision: $("#topicDecision")?.value || decision.topic_decision || "",
-      topic_priority: $("#topicPriority")?.value || decision.topic_priority || "",
-      owner: $("#recordingOwner")?.value || decision.owner || "",
-      due_date: $("#recordingDueDate")?.value || decision.due_date || "",
+      action: effectiveAction,
+      comment: inputValue("#reviewNote", decision.comment || ""),
+      topic_decision: inputValue("#topicDecision", decision.topic_decision || ""),
+      topic_priority: inputValue("#topicPriority", decision.topic_priority || ""),
+      owner: inputValue("#recordingOwner", decision.owner || ""),
+      due_date: inputValue("#recordingDueDate", decision.due_date || ""),
       recording_status: recordingStatus,
-      cover_title: $("#coverZhTitle")?.value || "",
-      cover_subtitle: $("#coverZhSubtitle")?.value || "",
-      cover_zh_title: $("#coverZhTitle")?.value || "",
-      cover_zh_subtitle: $("#coverZhSubtitle")?.value || "",
-      cover_en_title: $("#coverEnTitle")?.value || "",
-      cover_en_subtitle: $("#coverEnSubtitle")?.value || "",
+      cover_title: inputValue("#coverZhTitle", decision.cover_title || ""),
+      cover_subtitle: inputValue("#coverZhSubtitle", decision.cover_subtitle || ""),
+      cover_zh_title: inputValue("#coverZhTitle", decision.cover_zh_title || ""),
+      cover_zh_subtitle: inputValue("#coverZhSubtitle", decision.cover_zh_subtitle || ""),
+      cover_en_title: inputValue("#coverEnTitle", decision.cover_en_title || ""),
+      cover_en_subtitle: inputValue("#coverEnSubtitle", decision.cover_en_subtitle || ""),
       outputs,
       published_links: publishedLinkInputs.length ? publishedLinks : previousPublishedLinks,
       workflow_step: workflowStep,

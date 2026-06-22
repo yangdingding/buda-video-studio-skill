@@ -9,7 +9,10 @@ import {
 } from "../../lib/google-drive-state.mjs";
 
 const allowedActions = new Set(["approve", "revise", "block", "no_action", ""]);
-const allowedWorkflowSteps = new Set(["topic_selected", "assigned_recording", ""]);
+const allowedWorkflowSteps = new Set(["topic_selected", "assigned_recording", "material_reviewed", "editing", "cover_done", ""]);
+
+const payloadValue = (payload, previous, key) =>
+  Object.prototype.hasOwnProperty.call(payload, key) ? payload[key] || "" : previous[key] || "";
 
 const syncDecisionToDrive = async ({ id, decision }) => {
   const { loadedConfig, tokenState } = await loadDriveStatusContext();
@@ -69,11 +72,11 @@ export const saveDecision = async (payload) => {
   decisions[payload.id] = {
     action: payload.action || "",
     comment: payload.comment || "",
-    topic_decision: payload.topic_decision || previous.topic_decision || "",
-    topic_priority: payload.topic_priority || previous.topic_priority || "",
-    owner: payload.owner || previous.owner || "",
-    due_date: payload.due_date || previous.due_date || "",
-    recording_status: payload.recording_status || previous.recording_status || "",
+    topic_decision: payloadValue(payload, previous, "topic_decision"),
+    topic_priority: payloadValue(payload, previous, "topic_priority"),
+    owner: payloadValue(payload, previous, "owner"),
+    due_date: payloadValue(payload, previous, "due_date"),
+    recording_status: payloadValue(payload, previous, "recording_status"),
     cover_title: payload.cover_title || "",
     cover_subtitle: payload.cover_subtitle || "",
     cover_zh_title: payload.cover_zh_title || payload.cover_title || "",
