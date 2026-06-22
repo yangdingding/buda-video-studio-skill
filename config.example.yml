@@ -29,6 +29,11 @@ video_library:
   cover_folder_names:
     - "Covers"
     - "封面"
+  cover_source_folder_names:
+    - "成品样片"
+    - "封面素材"
+    - "Cover Source"
+    - "Cover Sources"
   voiceover_folder_names:
     - "Scripts"
     - "Script"
@@ -50,7 +55,8 @@ video_library:
     - "视频号"
 
 video_rules:
-  # Required production checks: voiceover markdown, PNG/JPG cover, and raw video.
+  # Required production checks: voiceover markdown/subtitle, PNG/JPG cover source/material,
+  # and raw video. A final cover under Covers also satisfies the cover-material check.
   distribution_ready_requires_export: true
   ready_for_edit_requires_voiceover: true
   ready_for_edit_requires_cover: true

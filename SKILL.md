@@ -56,18 +56,23 @@ The expected online Drive shape is project-folder based:
 ```text
 Buda Videos/
 ├── use-case-whisper/
+│   ├── Raw/
+│   │   └── 成品样片/
 │   ├── Covers/
 │   ├── Youtube/
 │   ├── Shorts/
 │   ├── 原视频/
 │   └── 视频号/
 └── intro-workbench-ui/
+    ├── Raw/
+    │   └── 成品样片/
     ├── Covers/
     ├── Youtube/
     ├── Shorts/
-    ├── Raw/
     └── 视频号/
 ```
+
+`Raw/成品样片/`, `封面素材/`, or configured cover-source folders are treated as cover source/material for production readiness. `Covers/` contains final generated cover outputs; if a final cover already exists in `Covers/`, the cover-material check is also treated as satisfied.
 
 Configuration lookup order:
 
@@ -114,12 +119,12 @@ Configuration lookup order:
 Use `references/video-rules.md` as the canonical rule explanation. In short:
 
 1. Treat each direct child folder under the configured Drive root as a video project.
-2. Identify raw footage, scripts, transcripts, covers, and channel exports from configured folder names and file extensions.
-3. For each project, automatically check the three required production items: voiceover/script markdown or subtitle/transcript file, PNG/JPG/JPEG cover image, and raw video.
+2. Identify raw footage, scripts, transcripts, cover source/material images, final `Covers` outputs, and channel exports from configured folder names and file extensions.
+3. For each project, automatically check the three required production items: voiceover/script markdown or subtitle/transcript file, PNG/JPG/JPEG cover source/material image, and raw video. If a final cover already exists in `Covers`, treat the cover-material check as satisfied.
 4. Show the human workflow as: `选题表` -> `待分配录制` -> `待录制` -> `待补齐素材` -> `待检查素材` -> `待剪辑输出` -> `剪辑中` -> `待制作封面` -> `待确认分发`.
-5. Apply asset priority: channel export plus cover -> distribution confirmation; channel export without cover -> cover production; all three required production items present -> post-production; partial source material -> idea/recording queues.
+5. Apply asset priority: channel export plus final cover -> distribution confirmation; channel export without final cover -> cover production; all three required production items present -> post-production; partial source material -> idea/recording queues.
 6. Add human-readable missing-item risks when a required item is absent.
-7. Allow a human override from `待补齐素材` to `剪辑中` only when voiceover/script evidence and raw video are present and the only missing required item is the cover.
+7. Allow a human override from `待补齐素材` to `剪辑中` only when voiceover/script evidence and raw video are present and the only missing required item is the cover source/material.
 8. Keep the app read/write only over local handoff files; external actions remain skill-side and approval-gated.
 
 ## App Actions
