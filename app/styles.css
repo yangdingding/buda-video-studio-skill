@@ -483,6 +483,16 @@ label {
   font-weight: 450;
 }
 
+.list-header.recording-header,
+.video-row.recording-plan-row {
+  grid-template-columns: minmax(280px, 1fr) 118px 130px 136px 116px 92px;
+}
+
+.list-header.gap-header,
+.video-row.material-gap-row {
+  grid-template-columns: minmax(300px, 1fr) 118px 168px repeat(3, 86px);
+}
+
 .list-header span {
   text-align: center;
 }
@@ -560,10 +570,26 @@ label {
 
 .status-cell,
 .action-cell,
-.asset-cell {
+.asset-cell,
+.handoff-cell {
   display: flex;
   justify-content: center;
   min-width: 0;
+}
+
+.handoff-cell {
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.handoff-cell small {
+  color: var(--faint);
+  font-size: 11px;
 }
 
 .status-text,
@@ -1645,21 +1671,32 @@ textarea:disabled {
   .stage-cell,
   .status-cell,
   .action-cell,
-  .asset-cell {
+  .asset-cell,
+  .handoff-cell {
     display: grid;
     grid-template-columns: 72px minmax(0, 1fr);
     column-gap: 10px;
     align-items: center;
     justify-content: initial;
+    text-align: left;
   }
 
   .stage-cell::before,
   .status-cell::before,
   .action-cell::before,
-  .asset-cell::before {
+  .asset-cell::before,
+  .handoff-cell::before {
     content: attr(data-label);
     color: var(--faint);
     font-size: 12px;
+  }
+
+  .handoff-cell {
+    gap: 2px;
+  }
+
+  .handoff-cell small {
+    grid-column: 2;
   }
 
   .stage-chip,

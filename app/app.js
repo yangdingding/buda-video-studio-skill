@@ -1087,8 +1087,12 @@ const renderList = () => {
     activeFilter === "topic_board" || (list.length > 0 && list.every((item) => workflowQueue(item) === "topic_board"));
   const isRecordingPlanView =
     !isTopicBoardView &&
-    (["assignment", "recording", "waiting_upload"].includes(activeFilter) ||
-      (list.length > 0 && list.every((item) => ["assignment", "recording", "waiting_upload"].includes(workflowQueue(item)))));
+    (["assignment", "recording"].includes(activeFilter) ||
+      (list.length > 0 && list.every((item) => ["assignment", "recording"].includes(workflowQueue(item)))));
+  const isMaterialGapView =
+    !isTopicBoardView &&
+    !isRecordingPlanView &&
+    (activeFilter === "waiting_upload" || (list.length > 0 && list.every((item) => workflowQueue(item) === "waiting_upload")));
   const header = isTopicBoardView
     ? `<div class="list-header topic-header">
       <span>选题</span>
@@ -1100,14 +1104,22 @@ const renderList = () => {
       <span>提示</span>
     </div>`
     : isRecordingPlanView
-      ? `<div class="list-header">
+      ? `<div class="list-header recording-header">
       <span>视频项目</span>
       <span>阶段</span>
-      <span>状态</span>
       <span>负责人</span>
       <span>交付时间</span>
       <span>录制状态</span>
       <span>提示</span>
+    </div>`
+      : isMaterialGapView
+        ? `<div class="list-header gap-header">
+      <span>视频项目</span>
+      <span>阶段</span>
+      <span>负责人/交付</span>
+      <span>视频</span>
+      <span>口播稿</span>
+      <span>封面</span>
     </div>`
     : `<div class="list-header">
       <span>视频项目</span>
@@ -1153,8 +1165,12 @@ const renderList = () => {
         </button>`;
         }
         const missingRequired = requiredChecks(item).filter((check) => !check.ready);
+        const checkByKey = Object.fromEntries(requiredChecks(item).map((check) => [check.key, check]));
+        const owner = productionOwner(item);
+        const dueDate = productionDueDate(item);
+        const rowViewClass = isRecordingPlanView ? "recording-plan-row" : isMaterialGapView ? "material-gap-row" : "";
         return `
-        <button class="video-row ${activeId === item.id ? "active" : ""}" data-id="${item.id}" data-stage="${escapeHtml(item.stage)}">
+        <button class="video-row ${rowViewClass} ${activeId === item.id ? "active" : ""}" data-id="${item.id}" data-stage="${escapeHtml(item.stage)}">
           <div class="video-main">
             <div class="queue-code">${escapeHtml(item.ref)}</div>
             <div class="row-title">${escapeHtml(item.title)}</div>
@@ -1162,9 +1178,6 @@ const renderList = () => {
           </div>
           <div class="stage-cell" data-label="阶段">
             <span class="stage-text">${escapeHtml(workflowLabel(item))}</span>
-          </div>
-          <div class="status-cell" data-label="状态">
-            <span class="status-text">${escapeHtml(statusDisplayLabel(item))}</span>
           </div>
           ${
             isRecordingPlanView
@@ -1178,14 +1191,36 @@ const renderList = () => {
                 <div class="asset-cell" data-label="录制状态">
                   <span class="inline-text">${escapeHtml(recordingStatusLabel(item))}</span>
                 </div>`
+              : isMaterialGapView
+                ? `
+                <div class="handoff-cell" data-label="负责人/交付">
+                  <span>${escapeHtml(owner)}</span>
+                  ${dueDate ? `<small>${escapeHtml(dueDate)}</small>` : ""}
+                </div>
+                ${["raw_video", "voiceover", "cover"]
+                  .map((key) => {
+                    const check = checkByKey[key];
+                    const count = (item.source_assets || []).filter((asset) => asset.type === key).length;
+                    return `
+                    <div class="asset-cell" data-label="${escapeHtml(check?.label || key)}">
+                      <span class="asset-state ${check?.ready ? "ready" : "missing"}">${check?.ready ? `✓ ${count || 1}` : "缺"}</span>
+                    </div>`;
+                  })
+                  .join("")}`
               : requiredChecks(item)
-                  .map((check) => `
+                  .map((check, index) => `
+                    ${index === 0 ? `<div class="status-cell" data-label="状态">
+                      <span class="status-text">${escapeHtml(statusDisplayLabel(item))}</span>
+                    </div>` : ""}
                     <div class="asset-cell" data-label="${escapeHtml(check.label)}">
                       <span class="asset-state ${check.ready ? "ready" : "missing"}">${check.ready ? "✓" : "缺"} ${escapeHtml(check.label)}</span>
                     </div>`)
                   .join("")
           }
-          <div class="action-cell" data-label="提示">
+          ${
+            isMaterialGapView
+              ? ""
+              : `<div class="action-cell" data-label="提示">
             ${
               decision.action
                 ? `<span class="hint-text decision">${escapeHtml(decisionDisplayLabel(item, decision))}</span>`
@@ -1193,7 +1228,8 @@ const renderList = () => {
                   ? `<span class="hint-text risk">缺 ${missingRequired.length} 项</span>`
                   : `<span class="hint-text muted">正常</span>`
             }
-          </div>
+          </div>`
+          }
         </button>`;
       })
       .join("") ||
