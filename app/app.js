@@ -1083,8 +1083,10 @@ const renderMetrics = () => {
 
 const renderList = () => {
   const list = filteredItems();
+  const isOverviewView = activeFilter === "all";
   const isTopicBoardView =
-    activeFilter === "topic_board" || (list.length > 0 && list.every((item) => workflowQueue(item) === "topic_board"));
+    !isOverviewView &&
+    (activeFilter === "topic_board" || (list.length > 0 && list.every((item) => workflowQueue(item) === "topic_board")));
   const isRecordingPlanView =
     !isTopicBoardView &&
     (["assignment", "recording"].includes(activeFilter) ||
@@ -1120,6 +1122,17 @@ const renderList = () => {
       <span>视频</span>
       <span>口播稿</span>
       <span>封面</span>
+    </div>`
+      : isOverviewView
+        ? `<div class="list-header overview-header">
+      <span>视频项目</span>
+      <span>阶段</span>
+      <span>负责人</span>
+      <span>交付时间</span>
+      <span>视频</span>
+      <span>口播稿</span>
+      <span>封面</span>
+      <span>提示</span>
     </div>`
     : `<div class="list-header">
       <span>视频项目</span>
@@ -1168,7 +1181,24 @@ const renderList = () => {
         const checkByKey = Object.fromEntries(requiredChecks(item).map((check) => [check.key, check]));
         const owner = productionOwner(item);
         const dueDate = productionDueDate(item);
-        const rowViewClass = isRecordingPlanView ? "recording-plan-row" : isMaterialGapView ? "material-gap-row" : "";
+        const rowViewClass = isRecordingPlanView
+          ? "recording-plan-row"
+          : isMaterialGapView
+            ? "material-gap-row"
+            : isOverviewView
+              ? "overview-row"
+              : "";
+        const materialStateCells = (keys) =>
+          keys
+            .map((key) => {
+              const check = checkByKey[key];
+              const count = (item.source_assets || []).filter((asset) => asset.type === key).length;
+              return `
+                    <div class="asset-cell" data-label="${escapeHtml(check?.label || key)}">
+                      <span class="asset-state ${check?.ready ? "ready" : "missing"}">${check?.ready ? `✓ ${count || 1}` : "缺"}</span>
+                    </div>`;
+            })
+            .join("");
         return `
         <button class="video-row ${rowViewClass} ${activeId === item.id ? "active" : ""}" data-id="${item.id}" data-stage="${escapeHtml(item.stage)}">
           <div class="video-main">
@@ -1197,16 +1227,16 @@ const renderList = () => {
                   <span>${escapeHtml(owner)}</span>
                   ${dueDate ? `<small>${escapeHtml(dueDate)}</small>` : ""}
                 </div>
-                ${["raw_video", "voiceover", "cover"]
-                  .map((key) => {
-                    const check = checkByKey[key];
-                    const count = (item.source_assets || []).filter((asset) => asset.type === key).length;
-                    return `
-                    <div class="asset-cell" data-label="${escapeHtml(check?.label || key)}">
-                      <span class="asset-state ${check?.ready ? "ready" : "missing"}">${check?.ready ? `✓ ${count || 1}` : "缺"}</span>
-                    </div>`;
-                  })
-                  .join("")}`
+                ${materialStateCells(["raw_video", "voiceover", "cover"])}`
+              : isOverviewView
+                ? `
+                <div class="asset-cell" data-label="负责人">
+                  <span class="inline-text">${escapeHtml(owner)}</span>
+                </div>
+                <div class="asset-cell" data-label="交付时间">
+                  <span class="inline-text">${escapeHtml(dueDate)}</span>
+                </div>
+                ${materialStateCells(["raw_video", "voiceover", "cover"])}`
               : requiredChecks(item)
                   .map((check, index) => `
                     ${index === 0 ? `<div class="status-cell" data-label="状态">

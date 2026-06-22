@@ -493,6 +493,11 @@ label {
   grid-template-columns: minmax(300px, 1fr) 118px 168px repeat(3, 86px);
 }
 
+.list-header.overview-header,
+.video-row.overview-row {
+  grid-template-columns: minmax(280px, 1fr) 118px 130px 126px repeat(3, 86px) 86px;
+}
+
 .list-header span {
   text-align: center;
 }
