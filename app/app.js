@@ -116,16 +116,6 @@ const decisionDisplayLabel = (item, decision) => {
   return decisionLabel(decision?.action);
 };
 
-const topicStatusLabel = (item) => {
-  const decision = currentDecision(item);
-  if (decision.action === "block") return "暂缓";
-  if (decision.action === "no_action") return "跳过";
-  if (decision.action === "revise") return "需补充 brief";
-  if (decision.topic_decision) return decision.topic_decision;
-  if (decision.workflow_step === "topic_selected") return "已确定";
-  return "待确认方向";
-};
-
 const topicHintLabel = (item) => {
   const decision = currentDecision(item);
   if (decision.action === "revise") return "补充角度";
@@ -502,7 +492,6 @@ const productionMetaHtml = (item, locked) => {
   const queue = workflowQueue(item);
   if (!["topic_board", "assignment", "recording", "waiting_upload"].includes(queue)) return "";
   const decision = currentDecision(item);
-  const topicDecision = decision.topic_decision || (decision.workflow_step === "topic_selected" ? "已确定" : item.topic_decision || "待确认");
   const priority = topicPriorityLabel(item);
   const owner = productionOwner(item) === "未分配" ? "" : productionOwner(item);
   const dueDate = productionDueDate(item);
@@ -515,12 +504,6 @@ const productionMetaHtml = (item, locked) => {
         <p>${queue === "topic_board" ? "先确认选题，再进入录制分配。" : "记录负责人、交付时间和录制进度。"}</p>
       </div>
       <div class="production-form">
-        <label>
-          <span>选题决策</span>
-          <select id="topicDecision" ${locked ? "disabled" : ""}>
-            ${["待确认", "已确定", "暂缓", "放弃"].map((value) => `<option value="${escapeHtml(value)}" ${value === topicDecision ? "selected" : ""}>${escapeHtml(value)}</option>`).join("")}
-          </select>
-        </label>
         <label>
           <span>优先级</span>
           <select id="topicPriority" ${locked ? "disabled" : ""}>
@@ -1154,7 +1137,6 @@ const renderList = () => {
       <span>选题</span>
       <span>来源</span>
       <span>优先级</span>
-      <span>选题决策</span>
       <span>负责人</span>
       <span>交付时间</span>
       <span>提示</span>
@@ -1216,9 +1198,6 @@ const renderList = () => {
           </div>
           <div class="asset-cell" data-label="优先级">
             <span class="inline-text">${escapeHtml(topicPriorityLabel(item))}</span>
-          </div>
-          <div class="asset-cell" data-label="选题决策">
-            <span class="inline-text">${escapeHtml(topicStatusLabel(item))}</span>
           </div>
           <div class="asset-cell" data-label="负责人">
             <span class="inline-text">${escapeHtml(productionOwner(item))}</span>
@@ -1481,7 +1460,6 @@ const saveDecision = async (id, action, options = {}) => {
       id,
       action: effectiveAction,
       comment: inputValue("#reviewNote", decision.comment || ""),
-      topic_decision: inputValue("#topicDecision", decision.topic_decision || ""),
       topic_priority: inputValue("#topicPriority", decision.topic_priority || ""),
       owner: inputValue("#recordingOwner", decision.owner || ""),
       due_date: inputValue("#recordingDueDate", decision.due_date || ""),
