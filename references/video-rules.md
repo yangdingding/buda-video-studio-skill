@@ -6,7 +6,7 @@ The skill should classify projects with deterministic, explainable rules. The lo
 
 Each project must be checked for three required production items:
 
-1. Voiceover/script markdown: any `.md` file inside the project folder. In this library, Markdown files are treated as口播稿/脚本 even when the filename is only the project name.
+1. Voiceover/script material: any `.md`口播稿/脚本, or `.srt`, `.vtt`, `.txt` subtitle/transcript file inside the project folder.
 2. Cover image: a `.png`, `.jpg`, or `.jpeg` file under configured cover folders such as `Covers` or `封面`.
 3. Raw video: a video file under configured raw folders such as `Raw`, `原始视频`, or `原视频`.
 
@@ -28,7 +28,7 @@ These names are configurable in `video_library`.
 
 Rules are evaluated from highest to lowest priority:
 
-1. `distribution_ready` + `to_approve`: exported channel assets exist and all three required checks are ready. The next human task is to review distribution status and channel copy.
+1. `distribution_ready` + `to_approve`: exported channel video assets exist. In the app queue, items with cover assets go to `待确认分发`; exported items without cover assets go to `待制作封面`.
 2. `distribution_ready` + `needs_review`: exported channel assets exist but one or more required checks are missing. The next human task is to confirm or fix the missing required items.
 3. `ready_for_edit`: raw video, voiceover/script markdown, and cover image all exist. The next human task is to approve post-production handoff.
 3. `assets_ready`: raw footage exists, but script/transcript material is missing. The next human task is to clarify the editing direction.
@@ -41,11 +41,12 @@ The app displays a production workflow on top of the deterministic file-stage ru
 
 1. `选题表`: topic folders or ideas that have not yet been accepted into recording.
 2. `待分配录制`: accepted topics waiting for an owner, recorder, or delivery date.
-3. `待补齐素材`: assigned recording items where voiceover markdown, cover image, or raw video is still missing.
+3. `待补齐素材`: assigned recording items where voiceover/subtitle material, cover image, or raw video is still missing.
 4. `待检查素材`: all three required items are present and need human quality review.
-5. `待制作封面`: the item passed material review and needs a final cover created/uploaded.
-6. `待剪辑输出`: the item is ready for post-production export.
-7. `待确认分发`: channel export files exist and need distribution confirmation.
+5. `待剪辑输出`: the item is ready to be handed to post-production.
+6. `剪辑中`: editing has started, but channel export video files have not appeared yet.
+7. `待制作封面`: channel export video files exist, but cover images are still missing from `Covers`/`封面`.
+8. `待确认分发`: channel export video files and cover images exist, and distribution needs confirmation.
 
 The first two queues are advanced by local UI decisions only. They do not mutate Google Drive.
 
@@ -58,7 +59,7 @@ The first two queues are advanced by local UI decisions only. They do not mutate
 
 ## 6. Risks
 
-- `missing_voiceover`: no voiceover/script markdown file was found.
+- `missing_voiceover`: no voiceover/script markdown or subtitle/transcript file was found.
 - `missing_cover`: no PNG/JPG/JPEG cover image was found.
 - `missing_raw_video`: no raw video was found.
 

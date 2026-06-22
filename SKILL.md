@@ -102,7 +102,7 @@ Configuration lookup order:
 - `script_ready`: script, outline, or transcript exists but footage is not ready.
 - `assets_ready`: raw footage exists.
 - `ready_for_edit`: raw footage and supporting notes/transcripts are ready for post-production.
-- `editing`: currently in post-production.
+- `editing`: currently in post-production. The app uses this when editing has started but channel export files have not appeared yet.
 - `cover_review`: needs cover copy or cover approval.
 - `render_ready`: ready to render/export.
 - `distribution_ready`: exported asset exists and needs distribution work.
@@ -115,9 +115,9 @@ Use `references/video-rules.md` as the canonical rule explanation. In short:
 
 1. Treat each direct child folder under the configured Drive root as a video project.
 2. Identify raw footage, scripts, transcripts, covers, and channel exports from configured folder names and file extensions.
-3. For each project, automatically check the three required production items: voiceover/script markdown, PNG/JPG/JPEG cover image, and raw video.
-4. Show the human workflow as: `选题表` -> `待分配录制` -> `待补齐素材` -> `待检查素材` -> `待制作封面` -> `待剪辑输出` -> `待确认分发`.
-5. Apply asset priority: channel export -> all three required production items present -> partial source material -> idea.
+3. For each project, automatically check the three required production items: voiceover/script markdown or subtitle/transcript file, PNG/JPG/JPEG cover image, and raw video.
+4. Show the human workflow as: `选题表` -> `待分配录制` -> `待录制` -> `待补齐素材` -> `待检查素材` -> `待剪辑输出` -> `剪辑中` -> `待制作封面` -> `待确认分发`.
+5. Apply asset priority: channel export plus cover -> distribution confirmation; channel export without cover -> cover production; all three required production items present -> post-production; partial source material -> idea/recording queues.
 6. Add human-readable missing-item risks when a required item is absent.
 7. Keep the app read/write only over local handoff files; external actions remain skill-side and approval-gated.
 

@@ -5,8 +5,9 @@ const filters = [
   ["recording", "待录制"],
   ["waiting_upload", "待补齐素材"],
   ["material_review", "待检查素材"],
-  ["cover_generation", "待制作封面"],
   ["edit_output", "待剪辑输出"],
+  ["editing", "剪辑中"],
+  ["cover_generation", "待制作封面"],
   ["distribution_confirm", "待确认分发"],
   ["done", "已完成"],
   ["blocked", "阻塞"],
@@ -225,11 +226,12 @@ const rowSummaryLabel = (item) => {
   if (queue === "assignment") return "等待分配录制负责人和交付时间。";
   if (queue === "recording") return "已分配录制，等待素材上传。";
   if (queue === "waiting_upload") return "素材未齐，先看右侧三项缺口。";
+  if (queue === "edit_output") return "素材已确认，准备交给后期剪辑。";
+  if (queue === "editing") return "后期剪辑中，等待渠道导出文件。";
+  if (queue === "cover_generation") return "已有剪辑输出，等待封面上传到 Covers。";
   if (queue === "distribution_confirm") return "已有剪辑输出，待确认分发渠道和发布链接。";
   return reasonLabel(item.reason);
 };
-
-const hasCoverAsset = (item) => item.source_assets.some((asset) => asset.type === "cover");
 
 const coverSourceLabel = (item) => {
   const source = item.cover_copy.source;
@@ -254,6 +256,8 @@ const allRequiredReady = (item) => requiredChecks(item).length > 0 && requiredCh
 
 const hasChannelExport = (item) => item.stage === "distribution_ready";
 
+const hasCoverAsset = (item) => item.source_assets.some((asset) => asset.type === "cover");
+
 const isDone = (item) => item.status === "done" || item.stage === "published";
 
 const isWorkflowDone = (item) => currentDecision(item).workflow_done || isDone(item);
@@ -270,15 +274,17 @@ const workflowQueue = (item) => {
   const decision = currentDecision(item);
   if (isBlocked(item)) return "blocked";
   if (isWorkflowDone(item)) return "done";
-  if (hasChannelExport(item)) return "distribution_confirm";
+  if (hasChannelExport(item)) return hasCoverAsset(item) ? "distribution_confirm" : "cover_generation";
   if (item.stage === "idea") {
     if (decision.workflow_step === "assigned_recording" || hasManualProductionPlan(item)) return "recording";
     return decision.workflow_step === "topic_selected" ? "assignment" : "topic_board";
   }
   if (!hasAnySourceAsset(item) && hasManualProductionPlan(item)) return "recording";
   if (!allRequiredReady(item)) return "waiting_upload";
+  if (decision.workflow_step === "editing") return "editing";
+  if (decision.workflow_step === "cover_done") return "editing";
+  if (decision.workflow_step === "material_reviewed") return "edit_output";
   if (decision.action !== "approve") return "material_review";
-  if (item.cover_copy?.needs_review) return "cover_generation";
   return "edit_output";
 };
 
@@ -289,8 +295,9 @@ const workflowLabel = (item) =>
     recording: "待录制",
     waiting_upload: "待补齐素材",
     material_review: "待检查素材",
-    cover_generation: "待制作封面",
     edit_output: "待剪辑输出",
+    editing: "剪辑中",
+    cover_generation: "待制作封面",
     distribution_confirm: "待确认分发",
     done: "已完成",
     blocked: "阻塞",
@@ -303,8 +310,9 @@ const nextStepLabel = (item) =>
     recording: "等待录制人完成录制并上传素材",
     waiting_upload: "等待录制人补齐口播稿、原始视频和封面",
     material_review: "检查三项上传物是否符合后期要求",
+    edit_output: "交给后期开始剪辑",
+    editing: "等待后期导出各渠道视频",
     cover_generation: "根据口播稿调用封面 skill 制作封面",
-    edit_output: "开始剪辑并输出各渠道视频",
     distribution_confirm: "确认输出文件和分发渠道",
     done: "流程已完成",
     blocked: "先处理阻塞原因",
@@ -317,8 +325,9 @@ const detailTitle = (item) =>
     recording: "等待录制",
     waiting_upload: "素材补齐",
     material_review: "素材检查",
-    cover_generation: "封面制作",
     edit_output: "剪辑输出",
+    editing: "剪辑中",
+    cover_generation: "封面制作",
     distribution_confirm: "分发确认",
     done: "已完成",
     blocked: "阻塞处理",
@@ -331,8 +340,9 @@ const detailDescription = (item) =>
     recording: "录制已分配，等待素材上传到 Google Drive。",
     waiting_upload: "等待口播稿、原始视频和封面图补齐。",
     material_review: "检查上传物是否符合后期要求。",
-    cover_generation: "根据口播稿和素材制作封面。",
-    edit_output: "开始剪辑并输出各渠道版本。",
+    edit_output: "素材已确认，准备交给后期开始剪辑。",
+    editing: "后期正在剪辑，等 YouTube、Shorts、视频号等导出视频出现。",
+    cover_generation: "剪辑输出已出现，还需要补齐 Covers 里的封面图。",
     distribution_confirm: "确认输出文件和分发渠道。",
     done: "这条视频流程已完成。",
     blocked: "先处理阻塞原因。",
@@ -345,8 +355,9 @@ const approveButtonLabel = (item) =>
     recording: "等待上传",
     waiting_upload: "素材未齐",
     material_review: "素材合格",
+    edit_output: "开始剪辑",
+    editing: "等待导出",
     cover_generation: "封面已完成",
-    edit_output: "剪辑已输出",
     distribution_confirm: "确认分发",
     done: "已完成",
     blocked: "已阻塞",
@@ -370,7 +381,7 @@ const requiredCheckSummary = (item) =>
 
 const assetTypes = {
   source: ["raw_video", "voiceover", "script", "transcript", "cover"],
-  sourceCore: ["raw_video", "voiceover", "script", "cover"],
+  sourceCore: ["raw_video", "voiceover", "script", "transcript", "cover"],
   exports: ["youtube_export", "shorts_export", "video_account_export"],
   cover: ["cover"],
 };
@@ -542,7 +553,7 @@ const recordingBriefHtml = (item) => {
 
 const editBriefHtml = (item) => {
   const queue = workflowQueue(item);
-  if (["topic_board", "assignment", "waiting_upload", "distribution_confirm", "done"].includes(queue)) return "";
+  if (["topic_board", "assignment", "waiting_upload", "cover_generation", "distribution_confirm", "done"].includes(queue)) return "";
   return `
     <section class="section">
       <div class="section-title">
@@ -878,10 +889,20 @@ const detailBodyHtml = (item, assetsByType, selectedOutputs, decision, locked) =
       ])}`,
     cover_generation: `
       ${coverCopyHtml(item, decision, locked)}
+      ${assetsHtml(item, hasAssets(exportAssets) ? exportAssets : {})}
       ${archivedAssetsHtml(item, sourceCoreAssets)}`,
     edit_output: `
       ${editBriefHtml(item)}
       ${assetsHtml(item, sourceCoreAssets)}
+      ${archivedAssetsHtml(item, coverAssets)}`,
+    editing: `
+      ${editBriefHtml(item)}
+      ${assetsHtml(item, sourceCoreAssets)}
+      ${queueGuideHtml("剪辑中", "后期已经开始处理，等待导出视频上传到渠道文件夹。", [
+        "等待 YouTube、Shorts、视频号等文件夹出现导出视频",
+        "导出视频出现后检查 Covers 文件夹是否已有封面",
+        "导出视频和封面都齐了会自动进入待确认分发",
+      ])}
       ${archivedAssetsHtml(item, coverAssets)}`,
     distribution_confirm: `
       ${outputsHtml(item, selectedOutputs, locked)}
@@ -939,8 +960,8 @@ const filteredItems = () =>
     return matchesSearch && matchesFilter;
   });
 
-const humanWorkflowQueues = ["topic_board", "assignment", "recording", "waiting_upload", "material_review", "distribution_confirm"];
-const executionWorkflowQueues = ["cover_generation", "edit_output"];
+const humanWorkflowQueues = ["topic_board", "assignment", "recording", "waiting_upload", "material_review", "editing", "cover_generation", "distribution_confirm"];
+const executionWorkflowQueues = ["edit_output"];
 const workflowPriority = [
   "blocked",
   "topic_board",
@@ -948,8 +969,9 @@ const workflowPriority = [
   "recording",
   "waiting_upload",
   "material_review",
-  "cover_generation",
   "edit_output",
+  "editing",
+  "cover_generation",
   "distribution_confirm",
 ];
 
@@ -970,6 +992,8 @@ const primaryActionLabel = (humanItems, blockedItems, executionItems) => {
   if (primaryQueue === "recording") return "等待录制完成并上传素材";
   if (primaryQueue === "waiting_upload") return "补齐口播稿、封面图和原始视频";
   if (primaryQueue === "material_review") return "检查上传素材是否符合后期要求";
+  if (primaryQueue === "editing") return "等待后期导出 YouTube、Shorts、视频号等视频";
+  if (primaryQueue === "cover_generation") return "制作封面并上传到 Covers 文件夹";
   if (primaryQueue === "distribution_confirm") return "确认分发渠道，并在发布后记录链接";
   if (executionItems.length) return "已有批准项，等待 skill 执行下一步";
   return "暂无需要你处理的事项";
@@ -984,6 +1008,8 @@ const primaryActionCountLabel = (humanItems, blockedItems) => {
   if (primaryQueue === "recording") return "待录制";
   if (primaryQueue === "waiting_upload") return "待补齐素材";
   if (primaryQueue === "material_review") return "待检查素材";
+  if (primaryQueue === "editing") return "剪辑中";
+  if (primaryQueue === "cover_generation") return "待制作封面";
   if (primaryQueue === "distribution_confirm") return "待确认分发";
   return "待人工处理";
 };
@@ -1318,7 +1344,7 @@ const renderDetail = () => {
   }, {});
 	  const missingRequired = requiredChecks(item).filter((check) => !check.ready);
 	  const queue = workflowQueue(item);
-	  const approveDisabled = locked || isWorkflowDone(item) || ["recording", "waiting_upload"].includes(queue);
+	  const approveDisabled = locked || isWorkflowDone(item) || ["recording", "waiting_upload", "editing"].includes(queue);
 	  const workflowText = workflowLabel(item);
 	  const statusText = statusDisplayLabel(item);
 
@@ -1356,7 +1382,7 @@ const renderDetail = () => {
       ${
         queue === "done"
           ? `<button class="action-button primary" data-action="${escapeHtml(decision.action || "approve")}" ${locked ? "disabled" : ""} title="保存已发布链接">保存链接</button>`
-          : `<button class="action-button primary" data-action="approve" ${approveDisabled ? "disabled" : ""} title="${queue === "recording" ? "录制人上传素材后会进入下一步" : queue === "waiting_upload" ? "口播稿、封面图、原始视频齐了以后再进入下一步" : isWorkflowDone(item) ? "这条视频已确认完成" : "确认进入下一步"}">${escapeHtml(approveButtonLabel(item))}</button>`
+          : `<button class="action-button primary" data-action="approve" ${approveDisabled ? "disabled" : ""} title="${queue === "recording" ? "录制人上传素材后会进入下一步" : queue === "waiting_upload" ? "口播稿、封面图、原始视频齐了以后再进入下一步" : queue === "editing" ? "等渠道导出视频出现后自动进入下一步" : isWorkflowDone(item) ? "这条视频已确认完成" : "确认进入下一步"}">${escapeHtml(approveButtonLabel(item))}</button>`
       }
       <button class="action-button" data-action="revise" ${locked ? "disabled" : ""} title="保存修改意见">要修改</button>
       <button class="action-button danger" data-action="block" ${locked ? "disabled" : ""} title="缺素材或方向，先阻塞">阻塞</button>
@@ -1409,7 +1435,13 @@ const saveDecision = async (id, action) => {
       ? "topic_selected"
       : action === "approve" && queue === "assignment"
         ? "assigned_recording"
-        : decision.workflow_step || "";
+        : action === "approve" && queue === "material_review"
+          ? "material_reviewed"
+          : action === "approve" && queue === "edit_output"
+            ? "editing"
+            : action === "approve" && queue === "cover_generation"
+              ? "cover_done"
+              : decision.workflow_step || "";
   const selectedRecordingStatus = $("#recordingStatus")?.value || decision.recording_status || "";
   const recordingStatus =
     action === "approve" && queue === "assignment" && (!selectedRecordingStatus || selectedRecordingStatus === "未分配")
