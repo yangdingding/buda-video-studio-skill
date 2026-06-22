@@ -217,6 +217,18 @@ const reasonLabel = (reason) =>
     "Cover assets exist, but source footage/script was not found.": "已有封面素材，但缺原始视频或口播稿。",
   })[reason] || reason;
 
+const rowSummaryLabel = (item) => {
+  const summary = String(item.summary || "").trim();
+  if (summary && !/cloud asset\(s\) found in Google Drive/i.test(summary)) return summary;
+  const queue = workflowQueue(item);
+  if (queue === "topic_board") return "确认这个方向是否值得进入录制。";
+  if (queue === "assignment") return "等待分配录制负责人和交付时间。";
+  if (queue === "recording") return "已分配录制，等待素材上传。";
+  if (queue === "waiting_upload") return "素材未齐，先看右侧三项缺口。";
+  if (queue === "distribution_confirm") return "已有剪辑输出，待确认分发渠道和发布链接。";
+  return reasonLabel(item.reason);
+};
+
 const hasCoverAsset = (item) => item.source_assets.some((asset) => asset.type === "cover");
 
 const coverSourceLabel = (item) => {
@@ -1155,7 +1167,7 @@ const renderList = () => {
           <div class="video-main">
             <div class="queue-code">${escapeHtml(item.ref.replace(/^Video/i, "Topic"))}</div>
             <div class="row-title">${escapeHtml(item.title)}</div>
-            <p class="row-summary">${escapeHtml(reasonLabel(item.reason))}</p>
+            <p class="row-summary">${escapeHtml(rowSummaryLabel(item))}</p>
           </div>
           <div class="stage-cell" data-label="来源">
             <span class="stage-text">${escapeHtml(topicSourceLabel(item))}</span>
@@ -1204,7 +1216,7 @@ const renderList = () => {
           <div class="video-main">
             <div class="queue-code">${escapeHtml(item.ref)}</div>
             <div class="row-title">${escapeHtml(item.title)}</div>
-            <p class="row-summary">${escapeHtml(reasonLabel(item.reason))}</p>
+            <p class="row-summary">${escapeHtml(rowSummaryLabel(item))}</p>
           </div>
           <div class="stage-cell" data-label="阶段">
             <span class="stage-text">${escapeHtml(workflowLabel(item))}</span>
