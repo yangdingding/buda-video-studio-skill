@@ -1616,6 +1616,14 @@ label {
   font-variant-numeric: tabular-nums;
 }
 
+.drawer-approval-copy {
+  color: var(--muted);
+  flex: 1 1 260px;
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+}
+
 .drawer-approval-checks {
   display: flex;
   flex-wrap: wrap;

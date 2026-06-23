@@ -129,14 +129,14 @@ const distributionApprovers = [
   {
     key: "kelly",
     name: "Kelly",
-    role: "内容确认",
-    description: "确认成片内容、封面和表达方向可以发布。",
+    role: "完成确认",
+    description: "确认这条视频的导出、封面、分发状态和发布链接都已核对。",
   },
   {
     key: "kelvin",
     name: "Kelvin",
-    role: "分发确认",
-    description: "确认渠道、导出文件和发布状态已经核对。",
+    role: "完成确认",
+    description: "确认这条视频的导出、封面、分发状态和发布链接都已核对。",
   },
 ];
 
@@ -431,7 +431,7 @@ const nextStepLabel = (item) =>
     edit_output: "交给后期开始剪辑",
     editing: "等待后期导出各渠道视频",
     cover_generation: "根据口播稿调用封面 skill 制作封面",
-    distribution_confirm: "确认输出文件和分发渠道",
+    distribution_confirm: "Kelly 和 Kelvin 都确认完成状态",
     done: "流程已完成",
     blocked: "先处理阻塞原因",
   })[workflowQueue(item)] || "检查视频状态";
@@ -446,7 +446,7 @@ const detailTitle = (item) =>
     edit_output: "进入后期确认",
     editing: "剪辑中",
     cover_generation: "封面制作",
-    distribution_confirm: "分发确认",
+    distribution_confirm: "双人完成确认",
     done: "已完成",
     blocked: "阻塞处理",
   })[workflowQueue(item)] || item.title;
@@ -461,7 +461,7 @@ const detailDescription = (item) =>
     edit_output: "素材已确认，准备交给后期开始剪辑。",
     editing: "后期正在剪辑，等所选渠道的导出视频出现。",
     cover_generation: "剪辑输出已出现，还需要补齐 Covers 里的最终封面。",
-    distribution_confirm: "核对导出文件和最终封面。",
+    distribution_confirm: "Kelly 和 Kelvin 都核对同一条完成状态；两个人都确认后才进入已完成。",
     done: "这条视频流程已完成。",
     blocked: "先处理阻塞原因。",
   })[workflowQueue(item)] || reasonLabel(item.reason);
@@ -478,7 +478,7 @@ const approveButtonLabel = (item) => {
     edit_output: "开始剪辑",
     editing: "等待导出",
     cover_generation: "封面已完成",
-    distribution_confirm: "确认通过",
+    distribution_confirm: "已分发",
     done: "已完成",
     blocked: "已阻塞",
   })[queue] || "批准";
@@ -496,6 +496,7 @@ const distributionApprovalBarHtml = (item, locked) => {
         <strong>双人确认</strong>
         <span>${approvalCount}/${distributionApprovers.length}</span>
       </div>
+      <p class="drawer-approval-copy">Kelly 和 Kelvin 都是在确认同一条视频已完成；两个人都勾选后才会进入已完成。</p>
       <div class="drawer-approval-checks">
         ${distributionApprovers
           .map(
@@ -978,7 +979,7 @@ const doneSummaryHtml = (item, selectedOutputs) => {
 
 const publishedLinksHtml = (item, locked) => {
   const queue = workflowQueue(item);
-  if (queue !== "done") return "";
+  if (!["distribution_confirm", "done"].includes(queue)) return "";
   const decision = currentDecision(item);
   const selectedOutputs = normalizeSavedOutputs(item, decision);
   const publishedLinks =
@@ -991,7 +992,7 @@ const publishedLinksHtml = (item, locked) => {
     <section class="section form-section">
       <div class="section-title">
         <h4>发布链接</h4>
-        <p>先在已交付渠道里勾选已经发布的平台，再填写公开链接。</p>
+        <p>先在输出渠道里勾选已经发布的平台，再填写公开链接。</p>
       </div>
     </section>`;
   }
@@ -999,7 +1000,7 @@ const publishedLinksHtml = (item, locked) => {
     <section class="section form-section">
       <div class="section-title">
         <h4>发布链接</h4>
-        <p>视频已经发出去后，把每个平台的公开链接填在这里。</p>
+        <p>${queue === "done" ? "视频已经发出去后，把每个平台的公开链接填在这里。" : "发布后把每个平台的公开链接填在这里；保存信息不会推进到已完成。"}</p>
       </div>
       <div class="published-link-list">
         ${selected
@@ -1083,11 +1084,13 @@ const detailBodyHtml = (item, assetsByType, selectedOutputs, decision, locked) =
       ${archivedAssetsHtml(item, coverAssets)}`,
     distribution_confirm: `
       ${assetsHtml(item, distributionAssets)}
-      ${queueGuideHtml("确认分发", "主要核对导出文件和最终封面。渠道选择已在剪辑阶段确认。", [
+      ${queueGuideHtml("确认完成", "Kelly 和 Kelvin 都需要核对同一条完成状态；不是按内容/分发拆角色。", [
         "确认 YouTube 中文、YouTube English、视频号是否有对应导出文件",
         "确认 Covers 里有最终封面",
-        "Shorts 有就一起核对，没有不阻断确认分发",
-      ])}`,
+        "确认已发布渠道的链接已经记录；只有一人确认时仍停留在待确认分发",
+      ])}
+      ${outputsHtml(item, selectedOutputs, locked)}
+      ${publishedLinksHtml(item, locked)}`,
     done: `
       ${doneSummaryHtml(item, selectedOutputs)}
       ${publishedLinksHtml(item, locked)}
@@ -1176,7 +1179,7 @@ const primaryActionLabel = (humanItems, blockedItems, executionItems) => {
   if (primaryQueue === "edit_output") return "确认素材质量并交给后期";
   if (primaryQueue === "editing") return "等待后期导出所选渠道视频";
   if (primaryQueue === "cover_generation") return "制作最终封面并上传到 Covers 文件夹";
-  if (primaryQueue === "distribution_confirm") return "确认分发渠道，并在发布后记录链接";
+  if (primaryQueue === "distribution_confirm") return "Kelly 和 Kelvin 都确认同一条完成状态";
   if (executionItems.length) return "已有批准项，等待 skill 执行下一步";
   return "暂无需要你处理的事项";
 };
