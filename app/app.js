@@ -80,6 +80,25 @@ const normalizeSavedOutputs = (item, decision) => {
   return selected;
 };
 
+const selectedOutputChannels = (item) => normalizeSavedOutputs(item, currentDecision(item));
+
+const requiredYoutubeExportCount = (item) => {
+  const selected = selectedOutputChannels(item);
+  if (selected.size === 0) return 2;
+  const hasChineseYoutube = selected.has("YouTube 中文");
+  const hasEnglishYoutube = selected.has("YouTube English");
+  if (hasChineseYoutube && hasEnglishYoutube) return 2;
+  if (hasChineseYoutube || hasEnglishYoutube) return 1;
+  return 0;
+};
+
+const channelRequirementLabel = (item) => {
+  const youtubeCount = requiredYoutubeExportCount(item);
+  if (youtubeCount >= 2) return "YouTube 中文/English 和视频号";
+  if (youtubeCount === 1) return "所选 YouTube 语言和视频号";
+  return "视频号";
+};
+
 const stageLabel = (stage) =>
   ({
     idea: "选题",
@@ -282,7 +301,8 @@ const hasVideoAccountExport = (item) => channelEvidenceCount(item, "video_accoun
 
 const hasAnyChannelExport = (item) => hasYoutubeExport(item) || hasShortsExport(item) || hasVideoAccountExport(item);
 
-const hasRequiredChannelExports = (item) => channelEvidenceCount(item, "youtube_export") >= 2 && hasVideoAccountExport(item);
+const hasRequiredChannelExports = (item) =>
+  channelEvidenceCount(item, "youtube_export") >= requiredYoutubeExportCount(item) && hasVideoAccountExport(item);
 
 const hasChannelExport = (item) => item.stage === "distribution_ready" || hasAnyChannelExport(item);
 
@@ -807,9 +827,12 @@ const coverCopyHtml = (item, decision, locked) => {
 
 const outputsHtml = (item, selectedOutputs, locked) => {
   const queue = workflowQueue(item);
-  if (!["distribution_confirm", "done"].includes(queue)) return "";
+  if (!["editing", "cover_generation", "distribution_confirm", "done"].includes(queue)) return "";
   const title = queue === "done" ? "已交付渠道" : "输出渠道";
-  const description = queue === "done" ? "记录这条视频实际交付或发布的平台。" : "勾选这条视频要交付的平台规格。";
+  const description =
+    queue === "done"
+      ? "记录这条视频实际交付或发布的平台。"
+      : "勾选这条视频实际要交付的平台；只做中文时取消 YouTube English。";
   return `
     <section class="section">
       <div class="section-title">
@@ -949,6 +972,7 @@ const detailBodyHtml = (item, assetsByType, selectedOutputs, decision, locked) =
       ])}`,
     cover_generation: `
       ${coverCopyHtml(item, decision, locked)}
+      ${outputsHtml(item, selectedOutputs, locked)}
       ${assetsHtml(item, hasAssets(exportAssets) ? exportAssets : {})}
       ${archivedAssetsHtml(item, sourceCoreAssets)}`,
     edit_output: `
@@ -957,9 +981,10 @@ const detailBodyHtml = (item, assetsByType, selectedOutputs, decision, locked) =
       ${archivedAssetsHtml(item, coverAssets)}`,
     editing: `
       ${editBriefHtml(item)}
+      ${outputsHtml(item, selectedOutputs, locked)}
       ${assetsHtml(item, sourceCoreAssets)}
       ${queueGuideHtml("剪辑中", "后期已经开始处理，等待导出视频上传到渠道文件夹。", [
-        "等待 YouTube 中文/English 和视频号文件夹出现导出视频",
+        `等待 ${channelRequirementLabel(item)} 文件夹出现导出视频`,
         "Shorts 有就一起确认，没有也不阻断待确认分发",
         "导出视频和 Covers 最终封面都齐了会自动进入待确认分发",
       ])}
@@ -1480,10 +1505,23 @@ const inputValue = (selector, fallback = "") => {
   return element ? element.value : fallback;
 };
 
+const summarizeDriveSyncError = (error) => {
+  const text = String(error || "");
+  if (/ACCESS_TOKEN_SCOPE_INSUFFICIENT|insufficient authentication scopes|PERMISSION_DENIED/i.test(text)) {
+    return "当前 OAuth token 只有读取权限，缺少写入 Drive 状态文件的权限。";
+  }
+  return text.length > 220 ? `${text.slice(0, 220)}...` : text;
+};
+
 const saveDecision = async (id, action, options = {}) => {
   const item = items().find((candidate) => candidate.id === id);
   const decision = item ? currentDecision(item) : {};
-  const outputs = [...document.querySelectorAll("[data-output]:checked")].map((input) => input.dataset.output);
+  const outputInputs = [...document.querySelectorAll("[data-output]")];
+  const outputs = outputInputs.length
+    ? outputInputs.filter((input) => input.checked).map((input) => input.dataset.output)
+    : Array.isArray(decision.outputs)
+      ? decision.outputs
+      : [];
   const publishedLinkInputs = [...document.querySelectorAll("[data-published-link]")];
   const publishedLinks = Object.fromEntries(
     publishedLinkInputs
@@ -1551,11 +1589,11 @@ const saveDecision = async (id, action, options = {}) => {
     console.warn("Google Drive status sync failed:", result.decision.drive_sync.error);
     alert(
       [
-        "这次操作已保存到当前工作台，但没有写回 Google Drive 状态文件。",
-        "如果之后重新安装 skill 或换环境运行，这个状态可能不会被记住。",
+        "这次操作已保存到当前工作台。",
+        "但没有同步到 Google Drive 的 buda-video-status.json，所以换环境或重装后可能不会记住。",
         "",
-        "请确认 OAuth 使用了完整 Drive 权限，然后重新授权一次。",
-        `错误：${result.decision.drive_sync.error}`,
+        "解决：用完整 Drive 权限重新授权一次。",
+        `原因：${summarizeDriveSyncError(result.decision.drive_sync.error)}`,
       ].join("\n")
     );
   } else if (result.decision?.drive_sync?.synced === false) {
