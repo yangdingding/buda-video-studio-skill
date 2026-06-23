@@ -29,12 +29,13 @@ These names are configurable in `video_library`.
 
 Rules are evaluated from highest to lowest priority:
 
-1. `distribution_ready` + `to_approve`: exported channel video assets exist. In the app queue, items with final cover outputs go to `待确认分发`; exported items without final cover outputs go to `待制作封面`.
-2. `distribution_ready` + `needs_review`: exported channel assets exist but one or more required checks are missing. The next human task is to confirm or fix the missing required items.
-3. `ready_for_edit`: raw video, voiceover/script markdown, and cover source/material all exist. A final cover in `Covers` also satisfies the cover source/material check. The next human task is to approve post-production handoff.
-3. `assets_ready`: raw footage exists, but script/transcript material is missing. The next human task is to clarify the editing direction.
-4. `script_ready`: script/transcript material exists, but raw footage is missing. The next human task is to confirm whether footage is needed or still pending.
-5. `idea`: no source material was found. The next human task is to add assets or clarify the topic.
+1. `distribution_ready` + `to_approve`: two YouTube exports (Chinese and English), one Shorts export, one `视频号` export, and final cover output exist. The next human task is `待确认分发`.
+2. `distribution_ready` + `needs_review`: the required YouTube/Shorts/视频号 exports exist, but final cover output is missing. The next human task is `待制作封面`.
+3. `editing`: one or more channel export videos exist, or editing has been manually started, but the required channel outputs are not complete yet. If the final cover is still missing, the app surfaces `待制作封面` so cover work can happen in parallel.
+4. `ready_for_edit`: raw video, voiceover/script markdown or subtitle file, and cover source/material all exist. A final cover in `Covers` also satisfies the cover source/material check. The next human task is to approve post-production handoff.
+5. `assets_ready`: raw footage exists, but script/transcript material is missing. The next human task is to clarify the editing direction.
+6. `script_ready`: script/transcript material exists, but raw footage is missing. The next human task is to confirm whether footage is needed or still pending.
+7. `idea`: no source material was found. The next human task is to add assets or clarify the topic.
 
 ## 4. Human Workflow Queues
 
@@ -43,22 +44,38 @@ The app displays a production workflow on top of the deterministic file-stage ru
 1. `选题表`: topic folders or ideas that have not yet been accepted into recording.
 2. `待分配录制`: accepted topics waiting for an owner, recorder, or delivery date.
 3. `待补齐素材`: assigned recording items where voiceover/subtitle material, cover source/material, or raw video is still missing.
-4. `待检查素材`: all three required items are present and need human quality review.
-5. `待剪辑输出`: the item is ready to be handed to post-production.
-6. `剪辑中`: editing has started, but channel export video files have not appeared yet.
-7. `待制作封面`: channel export video files exist, but final cover outputs are still missing from `Covers`/`封面`.
-8. `待确认分发`: channel export video files and final cover outputs exist, and distribution needs confirmation.
+4. `待进入后期`: all three required source items are present and need human quality review or post-production handoff.
+5. `剪辑中`: editing has started, but required channel export video files are not complete yet.
+6. `待制作封面`: editing has started or channel export video files exist, but final cover outputs are still missing from `Covers`/`封面`.
+7. `待确认分发`: two YouTube exports, Shorts export, 视频号 export, and final cover outputs exist, and distribution needs confirmation.
 
 The first two queues are advanced by local UI decisions only. They do not mutate Google Drive.
 
-## 5. Workflow Status
+## 5. Automatic vs Manual Progress
+
+Automatic progress comes from Drive evidence:
+
+- `待录制` / `待补齐素材` moves forward when uploaded source files appear in Drive.
+- `待进入后期` appears when voiceover/subtitle material, cover material/final cover, and raw video are all present.
+- `剪辑中` appears when editing has been manually started or partial export files appear.
+- `待制作封面` appears when editing/export evidence exists but no final cover exists in `Covers`.
+- `待确认分发` appears only after two YouTube exports, Shorts export, 视频号 export, and final cover exist.
+
+Manual progress comes from the local UI and is stored in `buda-video-status.json` when Drive write access is available:
+
+- Accepting a topic moves it from `选题表` to `待分配录制`.
+- Saving owner, delivery time, and recording status makes the assignment visible in all lists.
+- A human may start editing early from `待补齐素材` only when voiceover/subtitle material and raw video exist, and the only missing source item is cover material.
+- Marking distribution complete stores publication links and moves the item to `已完成`.
+
+## 6. Workflow Status
 
 - `to_approve`: the skill found enough evidence for the next action.
 - `needs_review`: the item needs human direction before the next action.
 - `blocked`: a human marked the item blocked.
 - `done`: the skill completed an approved local handoff.
 
-## 6. Risks
+## 7. Risks
 
 - `missing_voiceover`: no voiceover/script markdown or subtitle/transcript file was found.
 - `missing_cover_source`: no PNG/JPG/JPEG cover source/material image or final cover output was found.

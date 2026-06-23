@@ -121,11 +121,19 @@ Use `references/video-rules.md` as the canonical rule explanation. In short:
 1. Treat each direct child folder under the configured Drive root as a video project.
 2. Identify raw footage, scripts, transcripts, cover source/material images, final `Covers` outputs, and channel exports from configured folder names and file extensions.
 3. For each project, automatically check the three required production items: voiceover/script markdown or subtitle/transcript file, PNG/JPG/JPEG cover source/material image, and raw video. If a final cover already exists in `Covers`, treat the cover-material check as satisfied.
-4. Show the human workflow as: `选题表` -> `待分配录制` -> `待录制` -> `待补齐素材` -> `待检查素材` -> `待剪辑输出` -> `剪辑中` -> `待制作封面` -> `待确认分发`.
-5. Apply asset priority: channel export plus final cover -> distribution confirmation; channel export without final cover -> cover production; all three required production items present -> post-production; partial source material -> idea/recording queues.
+4. Show the human workflow as: `选题表` -> `待分配录制` -> `待录制` -> `待补齐素材` -> `待进入后期` -> `剪辑中` -> `待制作封面` -> `待确认分发`.
+5. Apply asset priority: two YouTube exports plus Shorts, 视频号, and final cover -> distribution confirmation; editing started or channel exports without final cover -> cover production; all three required production items present -> post-production handoff; partial source material -> idea/recording queues.
 6. Add human-readable missing-item risks when a required item is absent.
 7. Allow a human override from `待补齐素材` to `剪辑中` only when voiceover/script evidence and raw video are present and the only missing required item is the cover source/material.
 8. Keep the app read/write only over local handoff files; external actions remain skill-side and approval-gated.
+
+## State and Sync
+
+- Use the app's `重新同步` control, or rerun `node scripts/generate_batch.mjs`, whenever Google Drive files change.
+- Google Drive remains the source of truth for assets. The app should not require local Drive sync paths.
+- Local human decisions are stored in `app/.cache/decisions.json`.
+- If Drive write scope is available, decisions are also merged into `buda-video-status.json` so another environment can remember owners, due dates, recording status, workflow overrides, completion, and publication links.
+- Re-sync must preserve the current Google Drive OAuth config/token and merge status JSON back into the local cache.
 
 ## App Actions
 

@@ -5,6 +5,7 @@ import { appJsPath, indexPath, stylesPath } from "./paths.mjs";
 import { readBody, sendJson } from "./json.mjs";
 import { saveDecision } from "./decisions.mjs";
 import { getState } from "./state.mjs";
+import { generateBatch } from "../../scripts/generate_batch.mjs";
 
 const staticFiles = {
   "/": indexPath,
@@ -49,6 +50,18 @@ export const handleRequest = async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/decision") {
       const payload = JSON.parse(await readBody(request));
       sendJson(response, 200, { decision: await saveDecision(payload) });
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/sync") {
+      const generated = await generateBatch();
+      sendJson(response, 200, {
+        ok: true,
+        batch_id: generated.batch.batch_id,
+        generated_at: generated.batch.generated_at,
+        item_count: generated.itemCount,
+        onboarding: generated.state.onboarding,
+      });
       return;
     }
 

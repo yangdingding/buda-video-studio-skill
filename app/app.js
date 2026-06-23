@@ -4,8 +4,7 @@ const filters = [
   ["assignment", "待分配录制"],
   ["recording", "待录制"],
   ["waiting_upload", "待补齐素材"],
-  ["material_review", "待检查素材"],
-  ["edit_output", "待剪辑输出"],
+  ["material_review", "待进入后期"],
   ["editing", "剪辑中"],
   ["cover_generation", "待制作封面"],
   ["distribution_confirm", "待确认分发"],
@@ -19,6 +18,7 @@ let activeId = null;
 let detailOpen = false;
 let search = "";
 let editing = false;
+let syncing = false;
 
 const $ = (selector) => document.querySelector(selector);
 
@@ -202,6 +202,15 @@ const reasonLabel = (reason) =>
   ({
     "Cloud Drive has exported channel assets; review distribution and status.": "已找到渠道导出文件，可以检查分发状态。",
     "Cloud Drive has exported channel assets, but required production items are missing.": "已找到渠道导出文件，但必要项还不完整。",
+    "Cloud Drive has all required channel exports and final cover; review distribution and status.": "YouTube、Shorts、视频号和最终封面都已齐，可以确认分发。",
+    "Cloud Drive has all required channel exports, but final cover is missing.": "YouTube、Shorts、视频号导出已齐，还缺 Covers 最终封面。",
+    "Cloud Drive has partial channel exports; wait for YouTube, Shorts, and video account outputs.": "已有部分渠道导出，还要等 YouTube、Shorts、视频号都产出。",
+    "Cloud Drive has YouTube CN/EN, Shorts, video account exports, and final cover; review distribution and status.":
+      "YouTube 中文/English、Shorts、视频号和最终封面都已齐，可以确认分发。",
+    "Cloud Drive has YouTube CN/EN, Shorts, and video account exports, but final cover is missing.":
+      "YouTube 中文/English、Shorts、视频号导出已齐，还缺 Covers 最终封面。",
+    "Cloud Drive has partial channel exports; wait for YouTube CN/EN, Shorts, and video account outputs.":
+      "已有部分渠道导出，还要等 YouTube 中文/English、Shorts、视频号都产出。",
     "Script or transcript exists online; confirm whether footage is needed.": "已找到口播稿，需要确认是否还缺原始视频。",
     "Raw footage exists online, but script/transcript material was not found.": "已找到原始视频，但还缺口播稿。",
     "Online Google Drive has raw footage and script/transcript material.": "原始视频和口播稿已齐，可以进入后期。",
@@ -257,7 +266,19 @@ const canStartEditingWithoutCover = (item) => {
   return missing.length === 1 && missing[0] === "cover_source" && hasReadyCheck(item, "voiceover") && hasReadyCheck(item, "raw_video");
 };
 
-const hasChannelExport = (item) => item.stage === "distribution_ready";
+const channelEvidenceCount = (item, key) => Number(item.rule?.evidence?.[key] || 0) || itemAssetCount(item, key);
+
+const hasYoutubeExport = (item) => channelEvidenceCount(item, "youtube_export") > 0;
+
+const hasShortsExport = (item) => channelEvidenceCount(item, "shorts_export") > 0;
+
+const hasVideoAccountExport = (item) => channelEvidenceCount(item, "video_account_export") > 0;
+
+const hasAnyChannelExport = (item) => hasYoutubeExport(item) || hasShortsExport(item) || hasVideoAccountExport(item);
+
+const hasRequiredChannelExports = (item) => channelEvidenceCount(item, "youtube_export") >= 2 && hasShortsExport(item) && hasVideoAccountExport(item);
+
+const hasChannelExport = (item) => item.stage === "distribution_ready" || hasAnyChannelExport(item);
 
 const hasCoverAsset = (item) => item.source_assets.some((asset) => asset.type === "cover");
 
@@ -277,13 +298,16 @@ const workflowQueue = (item) => {
   const decision = currentDecision(item);
   if (isBlocked(item)) return "blocked";
   if (isWorkflowDone(item)) return "done";
-  if (hasChannelExport(item)) return hasCoverAsset(item) ? "distribution_confirm" : "cover_generation";
+  if (hasRequiredChannelExports(item) && hasCoverAsset(item)) return "distribution_confirm";
+  if (hasChannelExport(item) && !hasCoverAsset(item)) return "cover_generation";
+  if (item.stage === "editing" || decision.workflow_step === "editing") {
+    return hasCoverAsset(item) || decision.workflow_step === "cover_done" ? "editing" : "cover_generation";
+  }
   if (item.stage === "idea") {
     if (decision.workflow_step === "assigned_recording" || hasManualProductionPlan(item)) return "recording";
     return decision.workflow_step === "topic_selected" ? "assignment" : "topic_board";
   }
   if (!hasAnySourceAsset(item) && hasManualProductionPlan(item)) return "recording";
-  if (decision.workflow_step === "editing") return "editing";
   if (decision.workflow_step === "cover_done") return "editing";
   if (!allRequiredReady(item)) return "waiting_upload";
   if (decision.workflow_step === "material_reviewed") return "edit_output";
@@ -297,8 +321,8 @@ const workflowLabel = (item) =>
     assignment: "待分配录制",
     recording: "待录制",
     waiting_upload: "待补齐素材",
-    material_review: "待检查素材",
-    edit_output: "待剪辑输出",
+    material_review: "待进入后期",
+    edit_output: "待进入后期",
     editing: "剪辑中",
     cover_generation: "待制作封面",
     distribution_confirm: "待确认分发",
@@ -312,7 +336,7 @@ const nextStepLabel = (item) =>
     assignment: "分配录制人和交付时间",
     recording: "等待录制人完成录制并上传素材",
     waiting_upload: "等待录制人补齐口播稿、原始视频和封面素材",
-    material_review: "检查三项上传物是否符合后期要求",
+    material_review: "确认素材质量并交给后期",
     edit_output: "交给后期开始剪辑",
     editing: "等待后期导出各渠道视频",
     cover_generation: "根据口播稿调用封面 skill 制作封面",
@@ -327,8 +351,8 @@ const detailTitle = (item) =>
     assignment: "录制分配",
     recording: "等待录制",
     waiting_upload: "素材补齐",
-    material_review: "素材检查",
-    edit_output: "剪辑输出",
+    material_review: "进入后期确认",
+    edit_output: "进入后期确认",
     editing: "剪辑中",
     cover_generation: "封面制作",
     distribution_confirm: "分发确认",
@@ -342,7 +366,7 @@ const detailDescription = (item) =>
     assignment: "确认录制人、交付时间和录制注意事项。",
     recording: "录制已分配，等待素材上传到 Google Drive。",
     waiting_upload: "等待口播稿、原始视频和封面素材补齐。",
-    material_review: "检查上传物是否符合后期要求。",
+    material_review: "素材已齐，确认质量后交给后期。",
     edit_output: "素材已确认，准备交给后期开始剪辑。",
     editing: "后期正在剪辑，等 YouTube、Shorts、视频号等导出视频出现。",
     cover_generation: "剪辑输出已出现，还需要补齐 Covers 里的最终封面。",
@@ -359,7 +383,7 @@ const approveButtonLabel = (item) => {
     assignment: "已分配录制",
     recording: "等待上传",
     waiting_upload: "素材未齐",
-    material_review: "素材合格",
+    material_review: "进入后期",
     edit_output: "开始剪辑",
     editing: "等待导出",
     cover_generation: "封面已完成",
@@ -377,6 +401,7 @@ const statusDisplayLabel = (item) => {
 
 const filterMatch = (item, filter) => {
   if (filter === "all") return true;
+  if (filter === "material_review") return ["material_review", "edit_output"].includes(workflowQueue(item));
   return workflowQueue(item) === filter;
 };
 
@@ -913,8 +938,8 @@ const detailBodyHtml = (item, assetsByType, selectedOutputs, decision, locked) =
       ])}`,
     done: `
       ${doneSummaryHtml(item, selectedOutputs)}
-      ${outputsHtml(item, selectedOutputs, locked)}
       ${publishedLinksHtml(item, locked)}
+      ${outputsHtml(item, selectedOutputs, locked)}
       ${archivedAssetsHtml(item, assetsByType)}`,
     blocked: `
       ${queueGuideHtml("阻塞原因", "这条视频暂时不能继续推进，需要先处理备注里的问题。", [
@@ -963,15 +988,15 @@ const humanWorkflowQueues = ["topic_board", "assignment", "recording", "waiting_
 const executionWorkflowQueues = ["edit_output"];
 const workflowPriority = [
   "blocked",
-  "topic_board",
-  "assignment",
-  "recording",
-  "waiting_upload",
-  "material_review",
-  "edit_output",
-  "editing",
-  "cover_generation",
   "distribution_confirm",
+  "cover_generation",
+  "editing",
+  "edit_output",
+  "material_review",
+  "waiting_upload",
+  "recording",
+  "assignment",
+  "topic_board",
 ];
 
 const needsHumanAction = (item) => humanWorkflowQueues.includes(workflowQueue(item));
@@ -990,7 +1015,8 @@ const primaryActionLabel = (humanItems, blockedItems, executionItems) => {
   if (primaryQueue === "assignment") return "分配录制人和交付时间";
   if (primaryQueue === "recording") return "等待录制完成并上传素材";
   if (primaryQueue === "waiting_upload") return "补齐口播稿、封面素材和原始视频";
-  if (primaryQueue === "material_review") return "检查上传素材是否符合后期要求";
+  if (primaryQueue === "material_review") return "确认素材质量并交给后期";
+  if (primaryQueue === "edit_output") return "确认素材质量并交给后期";
   if (primaryQueue === "editing") return "等待后期导出 YouTube、Shorts、视频号等视频";
   if (primaryQueue === "cover_generation") return "制作最终封面并上传到 Covers 文件夹";
   if (primaryQueue === "distribution_confirm") return "确认分发渠道，并在发布后记录链接";
@@ -1006,7 +1032,8 @@ const primaryActionCountLabel = (humanItems, blockedItems) => {
   if (primaryQueue === "assignment") return "待分配录制";
   if (primaryQueue === "recording") return "待录制";
   if (primaryQueue === "waiting_upload") return "待补齐素材";
-  if (primaryQueue === "material_review") return "待检查素材";
+  if (primaryQueue === "material_review") return "待进入后期";
+  if (primaryQueue === "edit_output") return "待进入后期";
   if (primaryQueue === "editing") return "剪辑中";
   if (primaryQueue === "cover_generation") return "待制作封面";
   if (primaryQueue === "distribution_confirm") return "待确认分发";
@@ -1101,9 +1128,9 @@ const renderMetrics = () => {
   const all = items();
   const value = (predicate) => all.filter(predicate).length;
   const cards = [
-    ["总项目", all.length, "云端硬盘文件夹"],
-    ["待检查素材", value((item) => workflowQueue(item) === "material_review"), "三项上传物已齐"],
-    ["待确认分发", value((item) => workflowQueue(item) === "distribution_confirm"), "已有剪辑输出"],
+    ["待确认分发", value((item) => workflowQueue(item) === "distribution_confirm"), "导出和最终封面已齐"],
+    ["待制作封面", value((item) => workflowQueue(item) === "cover_generation"), "有导出，等 Covers"],
+    ["待补齐素材", value((item) => workflowQueue(item) === "waiting_upload"), "口播、视频或封面待补"],
   ];
 
   $("#metrics").innerHTML = cards
@@ -1496,6 +1523,11 @@ const renderTop = () => {
   $("#batchMeta").textContent = batch ? `${batch.items.length} 个视频` : "暂无批次";
   $("#viewTitle").textContent = filters.find(([key]) => key === activeFilter)?.[1] || "All Videos";
   $("#viewSubtitle").textContent = batch?.generated_at ? `最近同步：${new Date(batch.generated_at).toLocaleString()}` : "请先同步视频库。";
+  const syncButton = $("#syncButton");
+  if (syncButton) {
+    syncButton.disabled = syncing || Boolean(state?.lock);
+    syncButton.querySelector("span:last-child").textContent = syncing ? "同步中" : "重新同步";
+  }
 
   const lock = state?.lock;
   $("#lockStatus").hidden = !lock;
@@ -1523,10 +1555,37 @@ const loadState = async ({ force = false } = {}) => {
   render();
 };
 
+const syncNow = async () => {
+  if (syncing) return;
+  syncing = true;
+  const previousCount = items().length;
+  render();
+  try {
+    const response = await fetch("/api/sync", { method: "POST", cache: "no-store" });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      alert(error.error || "同步失败，请稍后重试。");
+      return;
+    }
+    const result = await response.json();
+    await loadState({ force: true });
+    const nextCount = Number(result.item_count || items().length || 0);
+    const diff = nextCount - previousCount;
+    if (diff !== 0) {
+      $("#viewSubtitle").textContent = `刚刚同步：${nextCount} 个项目（${diff > 0 ? "+" : ""}${diff}）`;
+    }
+  } finally {
+    syncing = false;
+    render();
+  }
+};
+
 $("#searchInput").addEventListener("input", (event) => {
   search = event.target.value;
   render();
 });
+
+$("#syncButton")?.addEventListener("click", syncNow);
 
 $("#drawerBackdrop").addEventListener("click", () => {
   detailOpen = false;

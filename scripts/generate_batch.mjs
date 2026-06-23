@@ -4,6 +4,8 @@ import { loadConfig } from "../lib/config.mjs";
 import { currentBatchPath, decisionsPath } from "../lib/paths.mjs";
 import { readJson, withLock, writeJson } from "../lib/common.mjs";
 
+const isCli = import.meta.url === `file://${process.argv[1]}`;
+
 const countMetrics = (items) =>
   items.reduce(
     (metrics, item) => {
@@ -29,9 +31,15 @@ const decisionHasValue = (decision) =>
       decision?.cover_zh_subtitle ||
       decision?.cover_en_title ||
       decision?.cover_en_subtitle ||
+      decision?.topic_decision ||
+      decision?.topic_priority ||
+      decision?.owner ||
+      decision?.due_date ||
+      decision?.recording_status ||
       decision?.workflow_step ||
       decision?.workflow_done ||
-      decision?.outputs?.length
+      decision?.outputs?.length ||
+      Object.keys(decision?.published_links || {}).length
   );
 
 const decisionTime = (decision) => {
@@ -62,7 +70,8 @@ const mergeDriveDecisionsIntoLocalCache = async (items) => {
   });
 };
 
-const main = async () => {
+export const generateBatch = async () => {
+  let generated = null;
   await withLock("Generating video production batch", async () => {
     const loadedConfig = await loadConfig();
     const reader = createDataReader(loadedConfig);
@@ -85,17 +94,26 @@ const main = async () => {
     };
 
     await writeJson(currentBatchPath, batch);
-    process.stdout.write(
-      [
-        `Generated ${items.length} video item(s).`,
-        `Batch: ${currentBatchPath}`,
-        state.onboarding.required ? `Onboarding required: ${state.onboarding.reasons.join(" ")}` : "Ready for review.",
-      ].join("\n") + "\n"
-    );
+    generated = { batch, state, itemCount: items.length };
   });
+
+  return generated;
 };
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+const main = async () => {
+  const generated = await generateBatch();
+  process.stdout.write(
+    [
+      `Generated ${generated.itemCount} video item(s).`,
+      `Batch: ${currentBatchPath}`,
+      generated.state.onboarding.required ? `Onboarding required: ${generated.state.onboarding.reasons.join(" ")}` : "Ready for review.",
+    ].join("\n") + "\n"
+  );
+};
+
+if (isCli) {
+  main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}
