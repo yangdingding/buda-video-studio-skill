@@ -38,6 +38,7 @@ const decisionHasValue = (decision) =>
       decision?.recording_status ||
       decision?.workflow_step ||
       decision?.workflow_done ||
+      Object.values(decision?.distribution_approvals || {}).some(Boolean) ||
       decision?.outputs?.length ||
       Object.keys(decision?.published_links || {}).length
   );

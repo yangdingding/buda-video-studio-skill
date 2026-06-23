@@ -14,6 +14,14 @@ const allowedWorkflowSteps = new Set(["topic_selected", "assigned_recording", "m
 const payloadValue = (payload, previous, key) =>
   Object.prototype.hasOwnProperty.call(payload, key) ? payload[key] || "" : previous[key] || "";
 
+const normalizeDistributionApprovals = (value) => ({
+  kelly: Boolean(value?.kelly),
+  kelvin: Boolean(value?.kelvin),
+});
+
+const hasDistributionApprovals = (value) =>
+  Object.values(normalizeDistributionApprovals(value)).every(Boolean);
+
 const syncDecisionToDrive = async ({ id, decision }) => {
   const { loadedConfig, tokenState } = await loadDriveStatusContext();
   if (!tokenState.ready) {
@@ -69,6 +77,10 @@ export const saveDecision = async (payload) => {
   const current = await readJson(decisionsPath, { decisions: {} });
   const decisions = current.decisions || {};
   const previous = decisions[payload.id] || {};
+  const distributionApprovals = Object.prototype.hasOwnProperty.call(payload, "distribution_approvals")
+    ? normalizeDistributionApprovals(payload.distribution_approvals)
+    : normalizeDistributionApprovals(previous.distribution_approvals);
+  const workflowDone = Boolean((payload.workflow_done || previous.workflow_done) && hasDistributionApprovals(distributionApprovals));
   decisions[payload.id] = {
     action: payload.action || "",
     comment: payload.comment || "",
@@ -89,7 +101,8 @@ export const saveDecision = async (payload) => {
         ? payload.published_links
         : previous.published_links || {},
     workflow_step: payload.workflow_step || previous.workflow_step || "",
-    workflow_done: Boolean(payload.workflow_done || previous.workflow_done),
+    distribution_approvals: distributionApprovals,
+    workflow_done: workflowDone,
     decided_at: new Date().toISOString(),
   };
 

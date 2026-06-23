@@ -82,21 +82,16 @@ const normalizeSavedOutputs = (item, decision) => {
 
 const selectedOutputChannels = (item) => normalizeSavedOutputs(item, currentDecision(item));
 
-const requiredYoutubeExportCount = (item) => {
+const defaultRequiredOutputChannels = ["YouTube 中文", "YouTube English", "视频号"];
+
+const selectedOrDefaultOutputChannels = (item) => {
   const selected = selectedOutputChannels(item);
-  if (selected.size === 0) return 2;
-  const hasChineseYoutube = selected.has("YouTube 中文");
-  const hasEnglishYoutube = selected.has("YouTube English");
-  if (hasChineseYoutube && hasEnglishYoutube) return 2;
-  if (hasChineseYoutube || hasEnglishYoutube) return 1;
-  return 0;
+  return selected.size > 0 ? selected : new Set(defaultRequiredOutputChannels);
 };
 
 const channelRequirementLabel = (item) => {
-  const youtubeCount = requiredYoutubeExportCount(item);
-  if (youtubeCount >= 2) return "YouTube 中文/English 和视频号";
-  if (youtubeCount === 1) return "所选 YouTube 语言和视频号";
-  return "视频号";
+  const labels = selectedChannelExportChecks(item).map((check) => check.label);
+  return labels.length ? labels.join("、") : "任一导出视频";
 };
 
 const stageLabel = (stage) =>
@@ -130,8 +125,41 @@ const decisionLabel = (action) =>
     no_action: "跳过",
   })[action] || "";
 
+const distributionApprovers = [
+  {
+    key: "kelly",
+    name: "Kelly",
+    role: "内容确认",
+    description: "确认成片内容、封面和表达方向可以发布。",
+  },
+  {
+    key: "kelvin",
+    name: "Kelvin",
+    role: "分发确认",
+    description: "确认渠道、导出文件和发布状态已经核对。",
+  },
+];
+
+const normalizeDistributionApprovals = (value) => ({
+  kelly: Boolean(value?.kelly),
+  kelvin: Boolean(value?.kelvin),
+});
+
+const distributionApprovals = (decision = {}) => normalizeDistributionApprovals(decision.distribution_approvals);
+
+const distributionApprovalCount = (decision = {}) => {
+  const approvals = distributionApprovals(decision);
+  return distributionApprovers.filter(({ key }) => approvals[key]).length;
+};
+
+const hasDistributionApprovals = (decision = {}) => distributionApprovalCount(decision) === distributionApprovers.length;
+
 const decisionDisplayLabel = (item, decision) => {
-  if (decision?.workflow_done) return "已确认";
+  const approvalCount = distributionApprovalCount(decision);
+  if (decision?.workflow_done && hasDistributionApprovals(decision)) return "已完成";
+  if (workflowQueue(item) === "distribution_confirm" && approvalCount > 0) {
+    return `已确认 ${approvalCount}/${distributionApprovers.length}`;
+  }
   return decisionLabel(decision?.action);
 };
 
@@ -221,21 +249,21 @@ const reasonLabel = (reason) =>
   ({
     "Cloud Drive has exported channel assets; review distribution and status.": "已找到渠道导出文件，可以检查分发状态。",
     "Cloud Drive has exported channel assets, but required production items are missing.": "已找到渠道导出文件，但必要项还不完整。",
-    "Cloud Drive has all required channel exports and final cover; review distribution and status.": "YouTube、Shorts、视频号和最终封面都已齐，可以确认分发。",
-    "Cloud Drive has all required channel exports, but final cover is missing.": "YouTube、Shorts、视频号导出已齐，还缺 Covers 最终封面。",
-    "Cloud Drive has partial channel exports; wait for YouTube, Shorts, and video account outputs.": "已有部分渠道导出，还要等 YouTube、Shorts、视频号都产出。",
+    "Cloud Drive has all required channel exports and final cover; review distribution and status.": "所选渠道导出和最终封面都已齐，可以确认分发。",
+    "Cloud Drive has all required channel exports, but final cover is missing.": "所选渠道导出已齐，还缺 Covers 最终封面。",
+    "Cloud Drive has partial channel exports; wait for YouTube, Shorts, and video account outputs.": "已有部分渠道导出，还要等所选渠道产出。",
     "Cloud Drive has YouTube CN/EN, Shorts, video account exports, and final cover; review distribution and status.":
-      "YouTube 中文/English、Shorts、视频号和最终封面都已齐，可以确认分发。",
+      "所选渠道导出和最终封面都已齐，可以确认分发。",
     "Cloud Drive has YouTube CN/EN, Shorts, and video account exports, but final cover is missing.":
-      "YouTube 中文/English、Shorts、视频号导出已齐，还缺 Covers 最终封面。",
+      "所选渠道导出已齐，还缺 Covers 最终封面。",
     "Cloud Drive has partial channel exports; wait for YouTube CN/EN, Shorts, and video account outputs.":
-      "已有部分渠道导出，还要等 YouTube 中文/English、Shorts、视频号都产出。",
+      "已有部分渠道导出，还要等所选渠道产出。",
     "Cloud Drive has YouTube CN/EN, video account exports, and final cover; review distribution and status. Shorts is optional.":
-      "YouTube 中文/English、视频号和最终封面都已齐，可以确认分发；Shorts 可选补充。",
+      "所选渠道导出和最终封面都已齐，可以确认分发。",
     "Cloud Drive has YouTube CN/EN and video account exports, but final cover is missing. Shorts is optional.":
-      "YouTube 中文/English、视频号导出已齐，还缺 Covers 最终封面；Shorts 可选补充。",
+      "所选渠道导出已齐，还缺 Covers 最终封面。",
     "Cloud Drive has partial channel exports; wait for YouTube CN/EN and video account outputs. Shorts is optional.":
-      "已有部分渠道导出，还要等 YouTube 中文/English 和视频号产出；Shorts 可选补充。",
+      "已有部分渠道导出，还要等所选渠道产出。",
     "Script or transcript exists online; confirm whether footage is needed.": "已找到口播稿，需要确认是否还缺原始视频。",
     "Raw footage exists online, but script/transcript material was not found.": "已找到原始视频，但还缺口播稿。",
     "Online Google Drive has raw footage and script/transcript material.": "原始视频和口播稿已齐，可以进入后期。",
@@ -301,8 +329,42 @@ const hasVideoAccountExport = (item) => channelEvidenceCount(item, "video_accoun
 
 const hasAnyChannelExport = (item) => hasYoutubeExport(item) || hasShortsExport(item) || hasVideoAccountExport(item);
 
-const hasRequiredChannelExports = (item) =>
-  channelEvidenceCount(item, "youtube_export") >= requiredYoutubeExportCount(item) && hasVideoAccountExport(item);
+const selectedChannelExportChecks = (item) => {
+  const selected = selectedOrDefaultOutputChannels(item);
+  const checks = [];
+  const youtubeLanguages = ["YouTube 中文", "YouTube English"].filter((channel) => selected.has(channel));
+
+  if (youtubeLanguages.length > 0) {
+    checks.push({
+      key: "youtube_export",
+      label: youtubeLanguages.length > 1 ? "YouTube 中文/English" : youtubeLanguages[0],
+      ready: channelEvidenceCount(item, "youtube_export") >= youtubeLanguages.length,
+    });
+  }
+
+  if (selected.has("YouTube Shorts")) {
+    checks.push({
+      key: "shorts_export",
+      label: "YouTube Shorts",
+      ready: hasShortsExport(item),
+    });
+  }
+
+  if (selected.has("视频号")) {
+    checks.push({
+      key: "video_account_export",
+      label: "视频号",
+      ready: hasVideoAccountExport(item),
+    });
+  }
+
+  return checks;
+};
+
+const hasRequiredChannelExports = (item) => {
+  const checks = selectedChannelExportChecks(item);
+  return checks.length > 0 && checks.every((check) => check.ready);
+};
 
 const hasChannelExport = (item) => item.stage === "distribution_ready" || hasAnyChannelExport(item);
 
@@ -310,7 +372,10 @@ const hasCoverAsset = (item) => item.source_assets.some((asset) => asset.type ==
 
 const isDone = (item) => item.status === "done" || item.stage === "published";
 
-const isWorkflowDone = (item) => currentDecision(item).workflow_done || isDone(item);
+const isWorkflowDone = (item) => {
+  const decision = currentDecision(item);
+  return isDone(item) || (Boolean(decision.workflow_done) && hasDistributionApprovals(decision));
+};
 
 const isBlocked = (item) => currentDecision(item).action === "block" || item.status === "blocked";
 
@@ -394,9 +459,9 @@ const detailDescription = (item) =>
     waiting_upload: "等待口播稿、原始视频和封面素材补齐。",
     material_review: "素材已齐，确认质量后交给后期。",
     edit_output: "素材已确认，准备交给后期开始剪辑。",
-    editing: "后期正在剪辑，等 YouTube、Shorts、视频号等导出视频出现。",
+    editing: "后期正在剪辑，等所选渠道的导出视频出现。",
     cover_generation: "剪辑输出已出现，还需要补齐 Covers 里的最终封面。",
-    distribution_confirm: "确认输出文件和分发渠道。",
+    distribution_confirm: "核对导出文件和最终封面。",
     done: "这条视频流程已完成。",
     blocked: "先处理阻塞原因。",
   })[workflowQueue(item)] || reasonLabel(item.reason);
@@ -413,10 +478,37 @@ const approveButtonLabel = (item) => {
     edit_output: "开始剪辑",
     editing: "等待导出",
     cover_generation: "封面已完成",
-    distribution_confirm: "确认分发",
+    distribution_confirm: "确认通过",
     done: "已完成",
     blocked: "已阻塞",
   })[queue] || "批准";
+};
+
+const distributionApprovalBarHtml = (item, locked) => {
+  if (workflowQueue(item) !== "distribution_confirm") return "";
+  const decision = currentDecision(item);
+  const approvals = distributionApprovals(decision);
+  const approvalCount = distributionApprovalCount(decision);
+
+  return `
+    <div class="drawer-approval-strip">
+      <div class="drawer-approval-title">
+        <strong>双人确认</strong>
+        <span>${approvalCount}/${distributionApprovers.length}</span>
+      </div>
+      <div class="drawer-approval-checks">
+        ${distributionApprovers
+          .map(
+            ({ key, name, role }) => `
+              <label class="drawer-approval-check">
+                <input type="checkbox" data-distribution-approval="${escapeHtml(key)}" ${approvals[key] ? "checked" : ""} ${locked ? "disabled" : ""} />
+                <span>${escapeHtml(name)}</span>
+                <small>${escapeHtml(role)}</small>
+              </label>`
+          )
+          .join("")}
+      </div>
+    </div>`;
 };
 
 const statusDisplayLabel = (item) => {
@@ -655,15 +747,15 @@ const requiredChecksHtml = (item) => {
 const assetMoreDetailsHtml = (asset) => {
   const rows = [
     ["文件路径", asset.path],
-    ["时间", assetTimeLabel(asset)],
-    ["账号", assetAccountLabel(asset)],
+    ["上传/更新", assetTimeLabel(asset)],
+    ["创建/上传账号", assetAccountLabel(asset)],
   ].filter(([, value]) => value);
 
   if (rows.length === 0) return "";
 
   return `
     <details class="asset-more">
-      <summary>更多</summary>
+      <summary aria-label="查看更多文件信息" title="查看更多文件信息">...</summary>
       <div class="asset-more-body">
         ${rows
           .map(
@@ -694,7 +786,6 @@ const assetGroupsHtml = (assetsByType) => `
                       <div class="asset-link">
                         <div class="asset-main">
                           <span class="asset-name">${escapeHtml(asset.name)}</span>
-                          ${assetMoreDetailsHtml(asset)}
                         </div>
                         <div class="asset-side">
                           <small class="asset-size">${escapeHtml(formatBytes(asset.size))}</small>
@@ -705,6 +796,7 @@ const assetGroupsHtml = (assetsByType) => `
                                 : ""
                             }
                             <a class="asset-action" href="${escapeHtml(asset.absolute_path)}" target="_blank" rel="noreferrer">打开</a>
+                            ${assetMoreDetailsHtml(asset)}
                           </div>
                         </div>
                       </div>`
@@ -990,12 +1082,11 @@ const detailBodyHtml = (item, assetsByType, selectedOutputs, decision, locked) =
       ])}
       ${archivedAssetsHtml(item, coverAssets)}`,
     distribution_confirm: `
-      ${outputsHtml(item, selectedOutputs, locked)}
       ${assetsHtml(item, distributionAssets)}
-      ${queueGuideHtml("确认分发", "这里确认导出文件和分发渠道，不需要再看剪辑要求。", [
-        "确认每个平台是否有对应导出文件",
-        "确认勾选的平台规格是否正确",
-        "分发完成后再进入已完成并填写公开链接",
+      ${queueGuideHtml("确认分发", "主要核对导出文件和最终封面。渠道选择已在剪辑阶段确认。", [
+        "确认 YouTube 中文、YouTube English、视频号是否有对应导出文件",
+        "确认 Covers 里有最终封面",
+        "Shorts 有就一起核对，没有不阻断确认分发",
       ])}`,
     done: `
       ${doneSummaryHtml(item, selectedOutputs)}
@@ -1068,17 +1159,22 @@ const readyForSkillExecution = (item) => {
   return decision.action === "approve" && executionWorkflowQueues.includes(queue);
 };
 
+const primaryActionQueue = (humanItems, blockedItems) => {
+  if (blockedItems.length) return "blocked";
+  return workflowPriority.find((queue) => humanItems.some((item) => workflowQueue(item) === queue)) || "";
+};
+
 const primaryActionLabel = (humanItems, blockedItems, executionItems) => {
   if (blockedItems.length) return "先处理阻塞说明，解除后回到对应流程";
 
-  const primaryQueue = workflowPriority.find((queue) => humanItems.some((item) => workflowQueue(item) === queue));
+  const primaryQueue = primaryActionQueue(humanItems, blockedItems);
   if (primaryQueue === "topic_board") return "确认选题是否进入录制计划";
   if (primaryQueue === "assignment") return "分配录制人和交付时间";
   if (primaryQueue === "recording") return "等待录制完成并上传素材";
   if (primaryQueue === "waiting_upload") return "补齐口播稿、封面素材和原始视频";
   if (primaryQueue === "material_review") return "确认素材质量并交给后期";
   if (primaryQueue === "edit_output") return "确认素材质量并交给后期";
-  if (primaryQueue === "editing") return "等待后期导出 YouTube 中文/English 和视频号视频";
+  if (primaryQueue === "editing") return "等待后期导出所选渠道视频";
   if (primaryQueue === "cover_generation") return "制作最终封面并上传到 Covers 文件夹";
   if (primaryQueue === "distribution_confirm") return "确认分发渠道，并在发布后记录链接";
   if (executionItems.length) return "已有批准项，等待 skill 执行下一步";
@@ -1088,7 +1184,7 @@ const primaryActionLabel = (humanItems, blockedItems, executionItems) => {
 const primaryActionCountLabel = (humanItems, blockedItems) => {
   if (blockedItems.length) return "阻塞待处理";
 
-  const primaryQueue = workflowPriority.find((queue) => humanItems.some((item) => workflowQueue(item) === queue));
+  const primaryQueue = primaryActionQueue(humanItems, blockedItems);
   if (primaryQueue === "topic_board") return "待确认选题";
   if (primaryQueue === "assignment") return "待分配录制";
   if (primaryQueue === "recording") return "待录制";
@@ -1104,7 +1200,7 @@ const primaryActionCountLabel = (humanItems, blockedItems) => {
 const primaryActionItems = (humanItems, blockedItems) => {
   if (blockedItems.length) return blockedItems;
 
-  const primaryQueue = workflowPriority.find((queue) => humanItems.some((item) => workflowQueue(item) === queue));
+  const primaryQueue = primaryActionQueue(humanItems, blockedItems);
   return primaryQueue ? humanItems.filter((item) => workflowQueue(item) === primaryQueue) : humanItems;
 };
 
@@ -1114,15 +1210,17 @@ const renderActionPanel = () => {
   const executionItems = all.filter(readyForSkillExecution);
   const blockedItems = all.filter(isBlocked);
   const primaryItems = primaryActionItems(humanItems, blockedItems);
+  const primaryQueue = primaryActionQueue(humanItems, blockedItems);
+  const primaryFilter = primaryQueue === "blocked" ? "blocked" : filters.find(([key]) => key === primaryQueue)?.[0] || "";
 
   $("#approvalPanel").innerHTML = `
     <div class="approval-kicker">需要你</div>
     <h2>人类操作审批区</h2>
     <p>${escapeHtml(primaryActionLabel(humanItems, blockedItems, executionItems))}</p>
-    <div class="approval-primary">
+    <button type="button" class="approval-primary" ${primaryFilter ? `data-primary-filter="${escapeHtml(primaryFilter)}"` : "disabled"}>
       <strong>${primaryItems.length}</strong>
       <span>${escapeHtml(primaryActionCountLabel(humanItems, blockedItems))}</span>
-    </div>
+    </button>
     <div class="approval-mini-grid">
       <div>
         <strong>${executionItems.length}</strong>
@@ -1133,6 +1231,10 @@ const renderActionPanel = () => {
         <span>受阻</span>
       </div>
     </div>`;
+  $("#approvalPanel").querySelector("[data-primary-filter]")?.addEventListener("click", (event) => {
+    activeFilter = event.currentTarget.dataset.primaryFilter;
+    render();
+  });
 };
 
 const renderFilters = () => {
@@ -1464,15 +1566,18 @@ const renderDetail = () => {
     </section>
 
     <div class="drawer-actions">
-      ${
-        queue === "done"
-          ? `<button class="action-button primary" data-action="${escapeHtml(decision.action || "approve")}" ${locked ? "disabled" : ""} title="保存已发布链接">保存链接</button>`
-          : `<button class="action-button primary" data-action="approve" ${approveDisabled ? "disabled" : ""} title="${queue === "recording" ? "录制人上传素材后会进入下一步" : queue === "waiting_upload" ? (allowManualEditing ? "口播稿和原始视频已齐，可以先进入剪辑；封面后补" : "口播稿和原始视频至少齐了以后再进入剪辑") : queue === "editing" ? "等渠道导出视频出现后自动进入下一步" : isWorkflowDone(item) ? "这条视频已确认完成" : "确认进入下一步"}">${escapeHtml(approveButtonLabel(item))}</button>`
-      }
-      ${queue === "done" ? "" : `<button class="action-button" data-save-only="true" data-action="${escapeHtml(decision.action || "")}" ${locked ? "disabled" : ""} title="只保存负责人、交付时间、录制状态和备注，不推进流程">保存信息</button>`}
-      <button class="action-button" data-action="revise" ${locked ? "disabled" : ""} title="保存修改意见">要修改</button>
-      <button class="action-button danger" data-action="block" ${locked ? "disabled" : ""} title="缺素材或方向，先阻塞">阻塞</button>
-      <button class="action-button" data-action="no_action" ${locked ? "disabled" : ""} title="这条暂时跳过">跳过</button>
+      ${distributionApprovalBarHtml(item, locked)}
+      <div class="drawer-action-buttons">
+        ${
+          queue === "done"
+            ? `<button class="action-button primary" data-action="${escapeHtml(decision.action || "approve")}" ${locked ? "disabled" : ""} title="保存已发布链接">保存链接</button>`
+            : `<button class="action-button primary" data-action="approve" ${approveDisabled ? "disabled" : ""} title="${queue === "recording" ? "录制人上传素材后会进入下一步" : queue === "waiting_upload" ? (allowManualEditing ? "口播稿和原始视频已齐，可以先进入剪辑；封面后补" : "口播稿和原始视频至少齐了以后再进入剪辑") : queue === "editing" ? "等渠道导出视频出现后自动进入下一步" : isWorkflowDone(item) ? "这条视频已确认完成" : "确认进入下一步"}">${escapeHtml(approveButtonLabel(item))}</button>`
+        }
+        ${queue === "done" ? "" : `<button class="action-button" data-save-only="true" data-action="${escapeHtml(decision.action || "")}" ${locked ? "disabled" : ""} title="只保存负责人、交付时间、录制状态和备注，不推进流程">保存信息</button>`}
+        <button class="action-button" data-action="revise" ${locked ? "disabled" : ""} title="保存修改意见">要修改</button>
+        <button class="action-button danger" data-action="block" ${locked ? "disabled" : ""} title="缺素材或方向，先阻塞">阻塞</button>
+        <button class="action-button" data-action="no_action" ${locked ? "disabled" : ""} title="这条暂时跳过">跳过</button>
+      </div>
     </div>`;
 
   document.querySelectorAll("[data-action]").forEach((button) => {
@@ -1532,9 +1637,24 @@ const saveDecision = async (id, action, options = {}) => {
     decision.published_links && typeof decision.published_links === "object" && !Array.isArray(decision.published_links)
       ? decision.published_links
       : {};
+  const distributionApprovalInputs = [...document.querySelectorAll("[data-distribution-approval]")];
+  const nextDistributionApprovals = distributionApprovalInputs.length
+    ? Object.fromEntries(
+        distributionApprovers.map(({ key }) => [
+          key,
+          Boolean(distributionApprovalInputs.find((input) => input.dataset.distributionApproval === key)?.checked),
+        ])
+      )
+    : distributionApprovals(decision);
+  const nextDistributionDecision = {
+    ...decision,
+    distribution_approvals: nextDistributionApprovals,
+  };
   const queue = item ? workflowQueue(item) : "";
   const effectiveAction = options.saveOnly ? decision.action || "" : action;
-  const workflowDone = Boolean(item && effectiveAction === "approve" && queue === "distribution_confirm");
+  const workflowDone = Boolean(
+    item && effectiveAction === "approve" && queue === "distribution_confirm" && hasDistributionApprovals(nextDistributionDecision)
+  );
   const workflowStep =
     effectiveAction === "approve" && queue === "topic_board"
       ? "topic_selected"
@@ -1573,8 +1693,9 @@ const saveDecision = async (id, action, options = {}) => {
       cover_en_subtitle: inputValue("#coverEnSubtitle", decision.cover_en_subtitle || ""),
       outputs,
       published_links: publishedLinkInputs.length ? publishedLinks : previousPublishedLinks,
+      distribution_approvals: nextDistributionApprovals,
       workflow_step: workflowStep,
-      workflow_done: workflowDone || Boolean(decision.workflow_done),
+      workflow_done: workflowDone || Boolean(decision.workflow_done && hasDistributionApprovals(nextDistributionDecision)),
     }),
   });
 

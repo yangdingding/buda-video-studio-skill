@@ -163,7 +163,19 @@ p {
   border: 1px solid color-mix(in oklch, var(--accent) 20%, var(--line));
   border-radius: 7px;
   background: color-mix(in oklch, var(--accent-soft) 58%, var(--panel));
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
   padding: 10px;
+  text-align: left;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease;
+}
+
+.approval-primary:hover {
+  border-color: color-mix(in oklch, var(--accent) 32%, var(--line));
+  background: color-mix(in oklch, var(--accent-soft) 74%, var(--panel));
 }
 
 .approval-primary strong {
@@ -1124,33 +1136,34 @@ label {
 
 .asset-groups {
   display: grid;
-  gap: 14px;
+  gap: 16px;
 }
 
 .asset-group {
   border: 0;
   border-radius: 0;
   background: transparent;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .asset-group-head {
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  border-bottom: 1px solid var(--line-soft);
-  background: color-mix(in oklch, var(--panel-soft) 28%, transparent);
-  padding: 7px 4px 8px;
+  border-bottom: 0;
+  background: transparent;
+  padding: 2px 2px 3px;
 }
 
 .asset-group-head strong {
+  color: var(--muted);
   font-size: 12px;
-  font-weight: 450;
+  font-weight: 430;
 }
 
 .asset-group-head span {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1159,14 +1172,17 @@ label {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px 14px;
   align-items: center;
-  border-top: 1px solid color-mix(in oklch, var(--line-soft) 68%, transparent);
+  border: 0;
+  border-radius: 8px;
+  background: color-mix(in oklch, var(--panel-soft) 35%, transparent);
   color: var(--ink);
-  padding: 9px 4px;
+  margin-top: 6px;
+  padding: 9px 10px;
   text-decoration: none;
 }
 
 .asset-link:hover {
-  background: var(--hover);
+  background: color-mix(in oklch, var(--accent-soft) 24%, var(--panel));
 }
 
 .asset-name,
@@ -1184,29 +1200,38 @@ label {
 
 .asset-name {
   min-width: 0;
-  font-size: 14px;
-  font-weight: 450;
-  line-height: 1.28;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 430;
+  line-height: 1.35;
 }
 
 .asset-more {
-  width: min(100%, 720px);
+  position: relative;
 }
 
 .asset-more summary {
-  display: inline-flex;
-  width: fit-content;
-  align-items: center;
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
   border: 1px solid color-mix(in oklch, var(--line) 72%, transparent);
-  border-radius: 6px;
+  border-radius: 999px;
   background: color-mix(in oklch, var(--panel) 84%, transparent);
   color: var(--faint);
   cursor: pointer;
-  font-size: 10.5px;
+  font-size: 0;
   line-height: 1;
   list-style: none;
-  margin-top: 2px;
-  padding: 3px 7px;
+  padding: 0;
+}
+
+.asset-more summary::before {
+  content: "...";
+  color: var(--muted);
+  font-size: 13px;
+  letter-spacing: 1px;
+  line-height: 1;
 }
 
 .asset-more summary::-webkit-details-marker {
@@ -1225,16 +1250,24 @@ label {
 .asset-more-body {
   display: grid;
   gap: 3px;
-  margin-top: 6px;
-  max-width: 100%;
+  position: absolute;
+  top: 30px;
+  right: 0;
+  z-index: 40;
+  width: min(420px, calc(100vw - 80px));
+  border: 1px solid color-mix(in oklch, var(--line) 72%, transparent);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 14px 32px rgba(64, 45, 21, 0.14);
+  padding: 10px;
 }
 
 .asset-detail-line {
   display: grid;
-  grid-template-columns: 46px minmax(0, 1fr);
+  grid-template-columns: 76px minmax(0, 1fr);
   gap: 8px;
   color: var(--faint);
-  font-size: 10.5px;
+  font-size: 12px;
   line-height: 1.35;
 }
 
@@ -1287,6 +1320,7 @@ label {
 
 .asset-actions {
   display: flex;
+  align-items: center;
   gap: 6px;
 }
 
@@ -1538,14 +1572,79 @@ label {
   right: 0;
   bottom: 0;
   z-index: 31;
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
   gap: 8px;
   width: min(760px, calc(100vw - 24px));
   border-top: 1px solid color-mix(in oklch, var(--line) 70%, transparent);
   background: color-mix(in oklch, var(--panel) 96%, transparent);
-  padding: 8px 30px;
+  padding: 8px 30px 10px;
   backdrop-filter: blur(14px);
+}
+
+.drawer-action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.drawer-approval-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding-bottom: 2px;
+}
+
+.drawer-approval-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.drawer-approval-title strong {
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 430;
+}
+
+.drawer-approval-title span {
+  color: var(--accent);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.drawer-approval-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.drawer-approval-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  border: 1px solid color-mix(in oklch, var(--line) 76%, transparent);
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--panel-soft) 35%, transparent);
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+.drawer-approval-check input {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+}
+
+.drawer-approval-check small {
+  color: var(--faint);
+  font-size: 11px;
 }
 
 .action-button {
@@ -1924,10 +2023,20 @@ textarea:disabled {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .asset-side {
+    justify-items: start;
+  }
+
   .asset-size {
     grid-column: 1;
     grid-row: auto;
     justify-self: start;
+  }
+
+  .asset-more-body {
+    right: auto;
+    left: 0;
+    width: min(360px, calc(100vw - 48px));
   }
 
   .output-grid {
@@ -1945,9 +2054,18 @@ textarea:disabled {
 
   .drawer-actions {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
     width: 100vw;
     padding: 10px 16px;
+  }
+
+  .drawer-approval-strip {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .drawer-action-buttons {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .action-button {
