@@ -122,7 +122,7 @@ Use `references/video-rules.md` as the canonical rule explanation. In short:
 2. Identify raw footage, scripts, transcripts, cover source/material images, final `Covers` outputs, and channel exports from configured folder names and file extensions.
 3. For each project, automatically check the three required production items: voiceover/script markdown or subtitle/transcript file, PNG/JPG/JPEG cover source/material image, and raw video. If a final cover already exists in `Covers`, treat the cover-material check as satisfied.
 4. Show the human workflow as: `选题表` -> `待分配录制` -> `待录制` -> `待补齐素材` -> `待进入后期` -> `剪辑中` -> `待制作封面` -> `待确认分发`.
-5. Apply asset priority: two YouTube exports plus Shorts, 视频号, and final cover -> distribution confirmation; editing started or channel exports without final cover -> cover production; all three required production items present -> post-production handoff; partial source material -> idea/recording queues.
+5. Apply asset priority: two YouTube exports plus 视频号 and final cover -> distribution confirmation; Shorts is optional and should be shown when present, but missing Shorts must not block `待确认分发`; editing started or channel exports without final cover -> cover production; all three required production items present -> post-production handoff; partial source material -> idea/recording queues.
 6. Add human-readable missing-item risks when a required item is absent.
 7. Allow a human override from `待补齐素材` to `剪辑中` only when voiceover/script evidence and raw video are present and the only missing required item is the cover source/material.
 8. Keep the app read/write only over local handoff files; external actions remain skill-side and approval-gated.

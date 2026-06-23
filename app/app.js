@@ -211,6 +211,12 @@ const reasonLabel = (reason) =>
       "YouTube 中文/English、Shorts、视频号导出已齐，还缺 Covers 最终封面。",
     "Cloud Drive has partial channel exports; wait for YouTube CN/EN, Shorts, and video account outputs.":
       "已有部分渠道导出，还要等 YouTube 中文/English、Shorts、视频号都产出。",
+    "Cloud Drive has YouTube CN/EN, video account exports, and final cover; review distribution and status. Shorts is optional.":
+      "YouTube 中文/English、视频号和最终封面都已齐，可以确认分发；Shorts 可选补充。",
+    "Cloud Drive has YouTube CN/EN and video account exports, but final cover is missing. Shorts is optional.":
+      "YouTube 中文/English、视频号导出已齐，还缺 Covers 最终封面；Shorts 可选补充。",
+    "Cloud Drive has partial channel exports; wait for YouTube CN/EN and video account outputs. Shorts is optional.":
+      "已有部分渠道导出，还要等 YouTube 中文/English 和视频号产出；Shorts 可选补充。",
     "Script or transcript exists online; confirm whether footage is needed.": "已找到口播稿，需要确认是否还缺原始视频。",
     "Raw footage exists online, but script/transcript material was not found.": "已找到原始视频，但还缺口播稿。",
     "Online Google Drive has raw footage and script/transcript material.": "原始视频和口播稿已齐，可以进入后期。",
@@ -276,7 +282,7 @@ const hasVideoAccountExport = (item) => channelEvidenceCount(item, "video_accoun
 
 const hasAnyChannelExport = (item) => hasYoutubeExport(item) || hasShortsExport(item) || hasVideoAccountExport(item);
 
-const hasRequiredChannelExports = (item) => channelEvidenceCount(item, "youtube_export") >= 2 && hasShortsExport(item) && hasVideoAccountExport(item);
+const hasRequiredChannelExports = (item) => channelEvidenceCount(item, "youtube_export") >= 2 && hasVideoAccountExport(item);
 
 const hasChannelExport = (item) => item.stage === "distribution_ready" || hasAnyChannelExport(item);
 
@@ -953,9 +959,9 @@ const detailBodyHtml = (item, assetsByType, selectedOutputs, decision, locked) =
       ${editBriefHtml(item)}
       ${assetsHtml(item, sourceCoreAssets)}
       ${queueGuideHtml("剪辑中", "后期已经开始处理，等待导出视频上传到渠道文件夹。", [
-        "等待 YouTube、Shorts、视频号等文件夹出现导出视频",
-        "导出视频出现后检查 Covers 文件夹是否已有最终封面",
-        "导出视频和封面都齐了会自动进入待确认分发",
+        "等待 YouTube 中文/English 和视频号文件夹出现导出视频",
+        "Shorts 有就一起确认，没有也不阻断待确认分发",
+        "导出视频和 Covers 最终封面都齐了会自动进入待确认分发",
       ])}
       ${archivedAssetsHtml(item, coverAssets)}`,
     distribution_confirm: `
@@ -1047,7 +1053,7 @@ const primaryActionLabel = (humanItems, blockedItems, executionItems) => {
   if (primaryQueue === "waiting_upload") return "补齐口播稿、封面素材和原始视频";
   if (primaryQueue === "material_review") return "确认素材质量并交给后期";
   if (primaryQueue === "edit_output") return "确认素材质量并交给后期";
-  if (primaryQueue === "editing") return "等待后期导出 YouTube、Shorts、视频号等视频";
+  if (primaryQueue === "editing") return "等待后期导出 YouTube 中文/English 和视频号视频";
   if (primaryQueue === "cover_generation") return "制作最终封面并上传到 Covers 文件夹";
   if (primaryQueue === "distribution_confirm") return "确认分发渠道，并在发布后记录链接";
   if (executionItems.length) return "已有批准项，等待 skill 执行下一步";
