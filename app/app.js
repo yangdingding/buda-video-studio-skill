@@ -1549,6 +1549,25 @@ const saveDecision = async (id, action, options = {}) => {
   const result = await response.json();
   if (result.decision?.drive_sync?.error) {
     console.warn("Google Drive status sync failed:", result.decision.drive_sync.error);
+    alert(
+      [
+        "这次操作已保存到当前工作台，但没有写回 Google Drive 状态文件。",
+        "如果之后重新安装 skill 或换环境运行，这个状态可能不会被记住。",
+        "",
+        "请确认 OAuth 使用了完整 Drive 权限，然后重新授权一次。",
+        `错误：${result.decision.drive_sync.error}`,
+      ].join("\n")
+    );
+  } else if (result.decision?.drive_sync?.synced === false) {
+    alert(
+      [
+        "这次操作已保存到当前工作台，但还没有同步到 Google Drive 状态文件。",
+        "如果之后重新安装 skill 或换环境运行，这个状态可能不会被记住。",
+        result.decision.drive_sync.reason ? `原因：${result.decision.drive_sync.reason}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n")
+    );
   }
 
   await loadState({ force: true });
@@ -1595,9 +1614,11 @@ const syncNow = async () => {
   if (syncing) return;
   syncing = true;
   const previousCount = items().length;
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 180000);
   render();
   try {
-    const response = await fetch("/api/sync", { method: "POST", cache: "no-store" });
+    const response = await fetch("/api/sync", { method: "POST", cache: "no-store", signal: controller.signal });
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       alert(error.error || "同步失败，请稍后重试。");
@@ -1610,7 +1631,11 @@ const syncNow = async () => {
     if (diff !== 0) {
       $("#viewSubtitle").textContent = `刚刚同步：${nextCount} 个项目（${diff > 0 ? "+" : ""}${diff}）`;
     }
+  } catch (error) {
+    const message = error?.name === "AbortError" ? "同步超过 3 分钟还没有返回，后台可能仍在生成；稍后刷新页面再看。" : error.message || "同步失败，请稍后重试。";
+    alert(message);
   } finally {
+    window.clearTimeout(timeout);
     syncing = false;
     render();
   }

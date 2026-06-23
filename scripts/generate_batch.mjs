@@ -53,8 +53,6 @@ const mergeDriveDecisionsIntoLocalCache = async (items) => {
       .filter((item) => decisionHasValue(item.decision))
       .map((item) => [item.id, item.decision])
   );
-  if (Object.keys(remoteDecisions).length === 0) return;
-
   const localFile = await readJson(decisionsPath, { decisions: {} });
   const localDecisions = localFile.decisions || {};
   const decisions = { ...localDecisions };
@@ -68,6 +66,8 @@ const mergeDriveDecisionsIntoLocalCache = async (items) => {
     updated_at: new Date().toISOString(),
     decisions,
   });
+
+  return decisions;
 };
 
 export const generateBatch = async () => {
@@ -76,25 +76,29 @@ export const generateBatch = async () => {
     const loadedConfig = await loadConfig();
     const reader = createDataReader(loadedConfig);
     const { state, items } = await reader.listVideoItems();
-    await mergeDriveDecisionsIntoLocalCache(items);
+    const decisions = await mergeDriveDecisionsIntoLocalCache(items);
+    const mergedItems = items.map((item) => ({
+      ...item,
+      decision: decisions[item.id] || item.decision || {},
+    }));
     const now = new Date();
     const batch = {
       batch_id: `buda-video-${now.toISOString().replace(/[-:]/g, "").slice(0, 15)}`,
       generated_at: now.toISOString(),
       source: "buda-video-studio",
       mode: "app-in-skill",
-      metrics: countMetrics(items),
+      metrics: countMetrics(mergedItems),
       onboarding: state.onboarding,
       drive_status: state.drive_status || null,
       config_summary: {
         ...state.config_summary,
         data_reader: reader.name,
       },
-      items,
+      items: mergedItems,
     };
 
     await writeJson(currentBatchPath, batch);
-    generated = { batch, state, itemCount: items.length };
+    generated = { batch, state, itemCount: mergedItems.length };
   });
 
   return generated;
