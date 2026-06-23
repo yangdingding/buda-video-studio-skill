@@ -478,7 +478,7 @@ const approveButtonLabel = (item) => {
     edit_output: "开始剪辑",
     editing: "等待导出",
     cover_generation: "封面已完成",
-    distribution_confirm: "已分发",
+    distribution_confirm: "确认分发",
     done: "已完成",
     blocked: "已阻塞",
   })[queue] || "批准";
@@ -1574,7 +1574,7 @@ const renderDetail = () => {
         ${
           queue === "done"
             ? `<button class="action-button primary" data-action="${escapeHtml(decision.action || "approve")}" ${locked ? "disabled" : ""} title="保存已发布链接">保存链接</button>`
-            : `<button class="action-button primary" data-action="approve" ${approveDisabled ? "disabled" : ""} title="${queue === "recording" ? "录制人上传素材后会进入下一步" : queue === "waiting_upload" ? (allowManualEditing ? "口播稿和原始视频已齐，可以先进入剪辑；封面后补" : "口播稿和原始视频至少齐了以后再进入剪辑") : queue === "editing" ? "等渠道导出视频出现后自动进入下一步" : isWorkflowDone(item) ? "这条视频已确认完成" : "确认进入下一步"}">${escapeHtml(approveButtonLabel(item))}</button>`
+            : `<button class="action-button primary" data-action="approve" ${approveDisabled ? "disabled" : ""} title="${queue === "recording" ? "录制人上传素材后会进入下一步" : queue === "waiting_upload" ? (allowManualEditing ? "口播稿和原始视频已齐，可以先进入剪辑；封面后补" : "口播稿和原始视频至少齐了以后再进入剪辑") : queue === "editing" ? "等渠道导出视频出现后自动进入下一步" : queue === "distribution_confirm" ? "保存当前勾选的分发确认；Kelly 和 Kelvin 都确认后才进入已完成" : isWorkflowDone(item) ? "这条视频已确认完成" : "确认进入下一步"}">${escapeHtml(approveButtonLabel(item))}</button>`
         }
         ${queue === "done" ? "" : `<button class="action-button" data-save-only="true" data-action="${escapeHtml(decision.action || "")}" ${locked ? "disabled" : ""} title="只保存负责人、交付时间、录制状态和备注，不推进流程">保存信息</button>`}
         <button class="action-button" data-action="revise" ${locked ? "disabled" : ""} title="保存修改意见">要修改</button>
