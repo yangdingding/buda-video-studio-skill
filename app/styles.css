@@ -1189,6 +1189,66 @@ label {
   line-height: 1.28;
 }
 
+.asset-more {
+  width: min(100%, 720px);
+}
+
+.asset-more summary {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  border: 1px solid color-mix(in oklch, var(--line) 72%, transparent);
+  border-radius: 6px;
+  background: color-mix(in oklch, var(--panel) 84%, transparent);
+  color: var(--faint);
+  cursor: pointer;
+  font-size: 10.5px;
+  line-height: 1;
+  list-style: none;
+  margin-top: 2px;
+  padding: 3px 7px;
+}
+
+.asset-more summary::-webkit-details-marker {
+  display: none;
+}
+
+.asset-more summary:hover {
+  border-color: color-mix(in oklch, var(--line-strong) 76%, transparent);
+  color: var(--muted);
+}
+
+.asset-more[open] summary {
+  color: var(--accent);
+}
+
+.asset-more-body {
+  display: grid;
+  gap: 3px;
+  margin-top: 6px;
+  max-width: 100%;
+}
+
+.asset-detail-line {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 8px;
+  color: var(--faint);
+  font-size: 10.5px;
+  line-height: 1.35;
+}
+
+.asset-detail-line span {
+  color: color-mix(in oklch, var(--faint) 82%, var(--muted));
+}
+
+.asset-detail-line strong {
+  min-width: 0;
+  color: color-mix(in oklch, var(--muted) 88%, var(--faint));
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
 .asset-path {
   color: color-mix(in oklch, var(--muted) 88%, var(--faint));
   font-size: 11px;

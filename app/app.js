@@ -422,6 +422,15 @@ const filterAssetsByTypes = (assetsByType, types) =>
 
 const hasAssets = (assetsByType) => Object.keys(assetsByType).length > 0;
 
+const mergeAssetGroups = (...groupsList) =>
+  groupsList.reduce((merged, groups) => {
+    Object.entries(groups || {}).forEach(([type, assets]) => {
+      if (!assets?.length) return;
+      merged[type] = [...(merged[type] || []), ...assets];
+    });
+    return merged;
+  }, {});
+
 const stepSummaryHtml = (item) => {
   if (workflowQueue(item) === "done") return "";
   return `
@@ -617,6 +626,32 @@ const requiredChecksHtml = (item) => {
     </section>`;
 };
 
+const assetMoreDetailsHtml = (asset) => {
+  const rows = [
+    ["文件路径", asset.path],
+    ["时间", assetTimeLabel(asset)],
+    ["账号", assetAccountLabel(asset)],
+  ].filter(([, value]) => value);
+
+  if (rows.length === 0) return "";
+
+  return `
+    <details class="asset-more">
+      <summary>更多</summary>
+      <div class="asset-more-body">
+        ${rows
+          .map(
+            ([label, value]) => `
+              <div class="asset-detail-line">
+                <span>${escapeHtml(label)}</span>
+                <strong>${escapeHtml(value)}</strong>
+              </div>`
+          )
+          .join("")}
+      </div>
+    </details>`;
+};
+
 const assetGroupsHtml = (assetsByType) => `
   <div class="asset-groups">
         ${Object.entries(assetsByType)
@@ -633,13 +668,7 @@ const assetGroupsHtml = (assetsByType) => `
                       <div class="asset-link">
                         <div class="asset-main">
                           <span class="asset-name">${escapeHtml(asset.name)}</span>
-                          <small class="asset-path">${escapeHtml(asset.path)}</small>
-                          <small class="asset-time">${escapeHtml(assetTimeLabel(asset))}</small>
-                          ${
-                            assetAccountLabel(asset)
-                              ? `<small class="asset-account">${escapeHtml(assetAccountLabel(asset))}</small>`
-                              : ""
-                          }
+                          ${assetMoreDetailsHtml(asset)}
                         </div>
                         <div class="asset-side">
                           <small class="asset-size">${escapeHtml(formatBytes(asset.size))}</small>
@@ -871,6 +900,7 @@ const detailBodyHtml = (item, assetsByType, selectedOutputs, decision, locked) =
   const sourceCoreAssets = filterAssetsByTypes(assetsByType, assetTypes.sourceCore);
   const exportAssets = filterAssetsByTypes(assetsByType, assetTypes.exports);
   const coverAssets = filterAssetsByTypes(assetsByType, assetTypes.cover);
+  const distributionAssets = hasAssets(exportAssets) ? mergeAssetGroups(coverAssets, exportAssets) : assetsByType;
 
   const bodies = {
     topic_board: `
@@ -930,7 +960,7 @@ const detailBodyHtml = (item, assetsByType, selectedOutputs, decision, locked) =
       ${archivedAssetsHtml(item, coverAssets)}`,
     distribution_confirm: `
       ${outputsHtml(item, selectedOutputs, locked)}
-      ${assetsHtml(item, hasAssets(exportAssets) ? exportAssets : assetsByType)}
+      ${assetsHtml(item, distributionAssets)}
       ${queueGuideHtml("确认分发", "这里确认导出文件和分发渠道，不需要再看剪辑要求。", [
         "确认每个平台是否有对应导出文件",
         "确认勾选的平台规格是否正确",
