@@ -1841,8 +1841,13 @@ const render = () => {
   }
   const activeItem = activeId ? items().find((item) => item.id === activeId) : null;
   if (activeId && (!activeItem || !filterMatch(activeItem, activeFilter))) {
-    activeId = null;
-    detailOpen = false;
+    if (activeItem) {
+      activeFilter = workflowQueue(activeItem);
+      detailOpen = true;
+    } else {
+      activeId = null;
+      detailOpen = false;
+    }
     syncRoute();
   }
   renderTop();
