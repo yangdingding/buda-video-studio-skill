@@ -1697,11 +1697,66 @@ const renderDetail = () => {
           </div>
         </details>
       </div>
+      <span class="action-feedback" id="actionFeedback" role="status" aria-live="polite"></span>
     </div>`;
+
+  const setActionFeedback = (text = "", tone = "") => {
+    const feedback = $("#actionFeedback");
+    if (!feedback) return;
+    feedback.textContent = text;
+    feedback.dataset.tone = tone;
+  };
 
   document.querySelectorAll("[data-action]").forEach((button) => {
     button.addEventListener("click", async () => {
-      await saveDecision(item.id, button.dataset.action, { saveOnly: button.dataset.saveOnly === "true" });
+      const originalText = button.textContent;
+      const wasEditing = editing;
+      editing = true;
+      button.disabled = true;
+      button.textContent = "保存中…";
+      button.dataset.state = "saving";
+      setActionFeedback("保存中…", "saving");
+      try {
+        const result = await saveDecision(item.id, button.dataset.action, {
+          saveOnly: button.dataset.saveOnly === "true",
+          reload: false,
+        });
+        if (result?.ok) {
+          button.textContent = "保存成功";
+          button.dataset.state = "success";
+          setActionFeedback("已保存", "success");
+          await sleep(1600);
+          editing = wasEditing;
+          await loadState({ force: true });
+          return;
+        }
+        button.textContent = "保存失败";
+        button.dataset.state = "error";
+        setActionFeedback("保存失败", "error");
+        await sleep(1400);
+        editing = wasEditing;
+        button.disabled = false;
+        button.textContent = originalText;
+        button.dataset.state = "";
+        setActionFeedback("");
+      } catch (error) {
+        console.error("Could not save decision:", error);
+        showToast({
+          title: "保存失败",
+          message: error.message || "Could not save decision.",
+          tone: "error",
+          duration: 5200,
+        });
+        button.textContent = "保存失败";
+        button.dataset.state = "error";
+        setActionFeedback("保存失败", "error");
+        await sleep(1400);
+        editing = wasEditing;
+        button.disabled = false;
+        button.textContent = originalText;
+        button.dataset.state = "";
+        setActionFeedback("");
+      }
     });
   });
   document.querySelectorAll("[data-preview-file]").forEach((button) => {
@@ -1728,12 +1783,76 @@ const inputValue = (selector, fallback = "") => {
   return element ? element.value : fallback;
 };
 
+const sleep = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
 const summarizeDriveSyncError = (error) => {
   const text = String(error || "");
   if (/ACCESS_TOKEN_SCOPE_INSUFFICIENT|insufficient authentication scopes|PERMISSION_DENIED/i.test(text)) {
     return "当前 OAuth token 只有读取权限，缺少写入 Drive 状态文件的权限。";
   }
   return text.length > 220 ? `${text.slice(0, 220)}...` : text;
+};
+
+const toastTimers = new WeakMap();
+
+const showToast = ({ title, message = "", tone = "success", duration = 3200 } = {}) => {
+  let stack = $("#toastStack");
+  if (!stack) {
+    stack = document.createElement("div");
+    stack.id = "toastStack";
+    stack.className = "toast-stack";
+    stack.setAttribute("aria-live", "polite");
+    stack.setAttribute("aria-atomic", "false");
+    document.body.append(stack);
+  }
+  if (!stack || !title) return;
+  const toast = document.createElement("div");
+  toast.className = `toast ${tone}`;
+  toast.innerHTML = `
+    <strong>${escapeHtml(title)}</strong>
+    ${message ? `<span>${escapeHtml(message)}</span>` : ""}`;
+  stack.append(toast);
+  requestAnimationFrame(() => toast.classList.add("visible"));
+  const remove = () => {
+    toast.classList.remove("visible");
+    window.setTimeout(() => toast.remove(), 180);
+  };
+  const timer = window.setTimeout(remove, duration);
+  toastTimers.set(toast, timer);
+  toast.addEventListener("click", () => {
+    window.clearTimeout(toastTimers.get(toast));
+    remove();
+  });
+};
+
+const checkedDistributionApproverNames = (approvals = {}) =>
+  distributionApprovers.filter(({ key }) => approvals[key]).map(({ name }) => name);
+
+const savedActionToast = ({ item, action, options, decision }) => {
+  const queue = item ? workflowQueue(item) : "";
+  const synced = decision?.drive_sync?.synced === true;
+  const syncText = synced ? "已同步到 Google Drive" : "已保存到当前工作台";
+
+  if (queue === "distribution_confirm" && action === "approve") {
+    const names = checkedDistributionApproverNames(decision?.distribution_approvals);
+    const progress = `${distributionApprovalCount(decision)}/${distributionApprovers.length}`;
+    return {
+      title: names.length ? `${names.join("、")} 确认已保存` : "确认状态已保存",
+      message: `${progress}，${syncText}`,
+    };
+  }
+
+  if (options.saveOnly) return { title: "信息已保存", message: syncText };
+  if (queue === "done") return { title: "发布链接已保存", message: syncText };
+
+  return (
+    {
+      approve: { title: `${approveButtonLabel(item)}已保存`, message: syncText },
+      revise: { title: "修改意见已保存", message: syncText },
+      block: { title: "已标记阻塞", message: syncText },
+      no_action: { title: "已记录跳过", message: syncText },
+    }[action] || { title: "操作已保存", message: syncText }
+  );
 };
 
 const saveDecision = async (id, action, options = {}) => {
@@ -1819,35 +1938,39 @@ const saveDecision = async (id, action, options = {}) => {
 
   if (!response.ok) {
     const error = await response.json();
-    alert(error.error || "Could not save decision.");
-    return;
+    showToast({
+      title: "保存失败",
+      message: error.error || "Could not save decision.",
+      tone: "error",
+      duration: 5200,
+    });
+    return { ok: false };
   }
 
   const result = await response.json();
   if (result.decision?.drive_sync?.error) {
     console.warn("Google Drive status sync failed:", result.decision.drive_sync.error);
-    alert(
-      [
-        "这次操作已保存到当前工作台。",
-        "但没有同步到 Google Drive 的 buda-video-status.json，所以换环境或重装后可能不会记住。",
-        "",
-        "解决：用完整 Drive 权限重新授权一次。",
-        `原因：${summarizeDriveSyncError(result.decision.drive_sync.error)}`,
-      ].join("\n")
-    );
+    showToast({
+      title: "已保存，Drive 同步失败",
+      message: summarizeDriveSyncError(result.decision.drive_sync.error),
+      tone: "warning",
+      duration: 6200,
+    });
   } else if (result.decision?.drive_sync?.synced === false) {
-    alert(
-      [
-        "这次操作已保存到当前工作台，但还没有同步到 Google Drive 状态文件。",
-        "如果之后重新安装 skill 或换环境运行，这个状态可能不会被记住。",
-        result.decision.drive_sync.reason ? `原因：${result.decision.drive_sync.reason}` : "",
-      ]
-        .filter(Boolean)
-        .join("\n")
-    );
+    showToast({
+      title: "已保存到当前工作台",
+      message: result.decision.drive_sync.reason || "尚未同步到 Google Drive 状态文件。",
+      tone: "warning",
+      duration: 5200,
+    });
+  } else {
+    showToast(savedActionToast({ item, action: effectiveAction, options, decision: result.decision }));
   }
 
-  await loadState({ force: true });
+  if (options.reload !== false) {
+    await loadState({ force: true });
+  }
+  return { ok: true, decision: result.decision };
 };
 
 const renderTop = () => {
@@ -1909,7 +2032,12 @@ const syncNow = async () => {
     const response = await fetch("/api/sync", { method: "POST", cache: "no-store", signal: controller.signal });
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      alert(error.error || "同步失败，请稍后重试。");
+      showToast({
+        title: "同步失败",
+        message: error.error || "请稍后重试。",
+        tone: "error",
+        duration: 5200,
+      });
       return;
     }
     const result = await response.json();
@@ -1919,9 +2047,18 @@ const syncNow = async () => {
     if (diff !== 0) {
       $("#viewSubtitle").textContent = `刚刚同步：${nextCount} 个项目（${diff > 0 ? "+" : ""}${diff}）`;
     }
+    showToast({
+      title: "同步完成",
+      message: `${nextCount} 个项目${diff !== 0 ? `（${diff > 0 ? "+" : ""}${diff}）` : ""}`,
+    });
   } catch (error) {
     const message = error?.name === "AbortError" ? "同步超过 3 分钟还没有返回，后台可能仍在生成；稍后刷新页面再看。" : error.message || "同步失败，请稍后重试。";
-    alert(message);
+    showToast({
+      title: "同步失败",
+      message,
+      tone: "error",
+      duration: 6200,
+    });
   } finally {
     window.clearTimeout(timeout);
     syncing = false;
