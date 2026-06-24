@@ -218,8 +218,10 @@ const hasDistributionApprovals = (decision = {}) => distributionApprovalCount(de
 const decisionDisplayLabel = (item, decision) => {
   const approvalCount = distributionApprovalCount(decision);
   if (decision?.workflow_done && hasDistributionApprovals(decision)) return "已完成";
-  if (workflowQueue(item) === "distribution_confirm" && approvalCount > 0) {
-    return `已确认 ${approvalCount}/${distributionApprovers.length}`;
+  if (workflowQueue(item) === "distribution_confirm") {
+    if (approvalCount === distributionApprovers.length) return `${distributionApprovers.length} 人已确认`;
+    if (approvalCount > 0) return `已确认 ${approvalCount}/${distributionApprovers.length}`;
+    return `待 ${distributionApprovers.length} 人确认`;
   }
   return decisionLabel(decision?.action);
 };
@@ -673,7 +675,7 @@ const canPreviewAsset = (asset) => Boolean(asset.drive_file_id);
 const drivePreviewUrl = (fileId) => `https://drive.google.com/file/d/${encodeURIComponent(fileId)}/preview`;
 
 const driveThumbnailUrl = (fileId) =>
-  fileId ? `https://drive.google.com/thumbnail?id=${encodeURIComponent(fileId)}&sz=w240-h160` : "";
+  fileId ? `/api/thumbnail/${encodeURIComponent(fileId)}` : "";
 
 const visualAssetTypes = new Set(["raw_video", "youtube_export", "shorts_export", "video_account_export", "cover", "cover_source"]);
 
@@ -690,13 +692,24 @@ const assetThumbLabel = (asset) => {
 const assetThumbClass = (asset) =>
   asset.type === "shorts_export" ? "asset-thumb portrait" : "asset-thumb landscape";
 
-const assetThumbnailHtml = (asset, { showThumbnails = false } = {}) => {
+const exportAssetTypes = new Set(["youtube_export", "shorts_export", "video_account_export"]);
+
+const thumbnailFallbackUrl = (asset, { coverThumbnailFileId = "" } = {}) => {
+  if (!exportAssetTypes.has(asset.type) || !coverThumbnailFileId || coverThumbnailFileId === asset.drive_file_id) return "";
+  return driveThumbnailUrl(coverThumbnailFileId);
+};
+
+const assetThumbnailHtml = (asset, { showThumbnails = false, coverThumbnailFileId = "" } = {}) => {
   if (!showThumbnails || !visualAssetTypes.has(asset.type)) return "";
   const thumbnailUrl = assetThumbnailUrl(asset);
+  const fallbackUrl = thumbnailFallbackUrl(asset, { coverThumbnailFileId });
   const fallback = assetThumbLabel(asset);
+  const imageError = fallbackUrl
+    ? `this.onerror=null; this.src='${escapeHtml(fallbackUrl)}';`
+    : "this.remove()";
   return `
     <button type="button" class="${assetThumbClass(asset)}" ${canPreviewAsset(asset) ? `data-preview-file="${escapeHtml(asset.drive_file_id)}" data-preview-title="${escapeHtml(asset.name)}"` : ""} aria-label="预览 ${escapeHtml(asset.name)}" title="预览 ${escapeHtml(asset.name)}">
-      ${thumbnailUrl ? `<img src="${escapeHtml(thumbnailUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()" />` : ""}
+      ${thumbnailUrl ? `<img src="${escapeHtml(thumbnailUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="${imageError}" />` : ""}
       <span>${escapeHtml(fallback)}</span>
     </button>`;
 };
@@ -911,13 +924,17 @@ const assetsHtml = (item, assetsByType) => {
   const queue = workflowQueue(item);
   if (queue === "topic_board") return "";
   if (!hasAssets(assetsByType)) return "";
+  const coverThumbnailFileId =
+    assetsByType.cover?.find((asset) => asset.drive_file_id)?.drive_file_id ||
+    item.source_assets?.find((asset) => asset.type === "cover" && asset.drive_file_id)?.drive_file_id ||
+    "";
   return `
     <section class="section">
       <div class="section-title">
         <h4>素材文件</h4>
         <p>来自在线 Google Drive，只做读取和引用。</p>
       </div>
-      ${assetGroupsHtml(assetsByType, { showThumbnails: queue === "distribution_confirm" })}
+      ${assetGroupsHtml(assetsByType, { showThumbnails: queue === "distribution_confirm", coverThumbnailFileId })}
     </section>`;
 };
 
@@ -1516,7 +1533,7 @@ const renderList = () => {
               const count = (item.source_assets || []).filter((asset) => asset.type === key).length;
               return `
                     <div class="asset-cell" data-label="${escapeHtml(check?.label || key)}">
-                      <span class="asset-state ${check?.ready ? "ready" : "missing"}">${check?.ready ? `✓ ${count || 1}` : "缺"}</span>
+                      <span class="asset-state ${check?.ready ? "ready" : "missing"}">${check?.ready ? `✓ ${count || 1}` : "❌ 缺"}</span>
                     </div>`;
             })
             .join("");
@@ -1564,7 +1581,7 @@ const renderList = () => {
                       <span class="status-text">${escapeHtml(statusDisplayLabel(item))}</span>
                     </div>` : ""}
                     <div class="asset-cell" data-label="${escapeHtml(check.label)}">
-                      <span class="asset-state ${check.ready ? "ready" : "missing"}">${check.ready ? "✓" : "缺"} ${escapeHtml(check.label)}</span>
+                      <span class="asset-state ${check.ready ? "ready" : "missing"}">${check.ready ? "✓" : "❌ 缺"} ${escapeHtml(check.label)}</span>
                     </div>`)
                   .join("")
           }
