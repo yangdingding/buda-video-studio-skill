@@ -1172,11 +1172,6 @@ const detailBodyHtml = (item, assetsByType, selectedOutputs, decision, locked) =
       ${archivedAssetsHtml(item, coverAssets)}`,
     distribution_confirm: `
       ${assetsHtml(item, distributionAssets)}
-      ${queueGuideHtml("确认完成", "Kelly 和 Kelvin 都需要核对同一条完成状态；不是按内容/分发拆角色。", [
-        "确认 YouTube 中文、YouTube English、视频号是否有对应导出文件",
-        "确认 Covers 里有最终封面",
-        "确认已发布渠道的链接已经记录；只有一人确认时仍停留在待确认分发",
-      ])}
       ${outputsHtml(item, selectedOutputs, locked)}
       ${publishedLinksHtml(item, locked)}`,
     done: `
