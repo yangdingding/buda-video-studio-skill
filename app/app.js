@@ -19,8 +19,69 @@ let detailOpen = false;
 let search = "";
 let editing = false;
 let syncing = false;
+let isApplyingRoute = false;
 
 const $ = (selector) => document.querySelector(selector);
+
+const routeFilters = () => filters.map(([key]) => key);
+
+const encodeRoutePart = (value) => encodeURIComponent(String(value || ""));
+
+const decodeRoutePart = (value) => {
+  try {
+    return decodeURIComponent(value || "");
+  } catch {
+    return value || "";
+  }
+};
+
+const routeFor = () => {
+  const filterPart = routeFilters().includes(activeFilter) ? activeFilter : "all";
+  return detailOpen && activeId ? `/${filterPart}/${encodeRoutePart(activeId)}` : `/${filterPart}`;
+};
+
+const parseHashRoute = () => {
+  const raw = (window.location.hash || "").replace(/^#\/?/, "");
+  const parts = raw.split("/").filter(Boolean).map(decodeRoutePart);
+  return {
+    filter: routeFilters().includes(parts[0]) ? parts[0] : "all",
+    id: parts[1] || null,
+  };
+};
+
+const applyRouteFromHash = () => {
+  isApplyingRoute = true;
+  const route = parseHashRoute();
+  activeFilter = route.filter;
+  activeId = route.id;
+  detailOpen = Boolean(route.id);
+  isApplyingRoute = false;
+};
+
+const syncRoute = ({ push = false } = {}) => {
+  if (isApplyingRoute) return;
+  const target = `#${routeFor()}`;
+  if (window.location.hash === target) return;
+  if (push) window.location.hash = target;
+  else history.replaceState(null, "", target);
+};
+
+const navigateTo = (next = {}, { replace = false } = {}) => {
+  if ("filter" in next) activeFilter = next.filter;
+  if ("id" in next) activeId = next.id;
+  if ("detailOpen" in next) detailOpen = next.detailOpen;
+  const target = `#${routeFor()}`;
+  if (window.location.hash === target) {
+    render();
+    return;
+  }
+  if (replace) {
+    history.replaceState(null, "", target);
+    render();
+    return;
+  }
+  window.location.hash = target;
+};
 
 const ruleLabels = {
   channel_export_found: "已有渠道导出",
@@ -1235,8 +1296,7 @@ const renderActionPanel = () => {
       </div>
     </div>`;
   $("#approvalPanel").querySelector("[data-primary-filter]")?.addEventListener("click", (event) => {
-    activeFilter = event.currentTarget.dataset.primaryFilter;
-    render();
+    navigateTo({ filter: event.currentTarget.dataset.primaryFilter, id: null, detailOpen: false });
   });
 };
 
@@ -1255,8 +1315,7 @@ const renderFilters = () => {
 
   document.querySelectorAll("[data-filter]").forEach((button) => {
     button.addEventListener("click", () => {
-      activeFilter = button.dataset.filter;
-      render();
+      navigateTo({ filter: button.dataset.filter, id: null, detailOpen: false });
     });
   });
 };
@@ -1493,9 +1552,7 @@ const renderList = () => {
 
   document.querySelectorAll("[data-id]").forEach((button) => {
     button.addEventListener("click", () => {
-      activeId = button.dataset.id;
-      detailOpen = true;
-      render();
+      navigateTo({ id: button.dataset.id, detailOpen: true });
     });
   });
 };
@@ -1594,8 +1651,7 @@ const renderDetail = () => {
     });
   });
   $("#closeDetail")?.addEventListener("click", () => {
-    detailOpen = false;
-    render();
+    navigateTo({ id: null, detailOpen: false }, { replace: true });
   });
   document.querySelectorAll("[data-cover-title]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -1756,6 +1812,12 @@ const render = () => {
   if (!filters.some(([key]) => key === activeFilter)) {
     activeFilter = "all";
   }
+  const activeItem = activeId ? items().find((item) => item.id === activeId) : null;
+  if (activeId && (!activeItem || !filterMatch(activeItem, activeFilter))) {
+    activeId = null;
+    detailOpen = false;
+    syncRoute();
+  }
   renderTop();
   renderActionPanel();
   renderFilters();
@@ -1811,8 +1873,7 @@ $("#searchInput").addEventListener("input", (event) => {
 $("#syncButton")?.addEventListener("click", syncNow);
 
 $("#drawerBackdrop").addEventListener("click", () => {
-  detailOpen = false;
-  render();
+  navigateTo({ id: null, detailOpen: false }, { replace: true });
 });
 
 $("#closeVideoPreview")?.addEventListener("click", closeFilePreview);
@@ -1830,8 +1891,7 @@ document.addEventListener("keydown", (event) => {
     return;
   }
   if (detailOpen) {
-    detailOpen = false;
-    render();
+    navigateTo({ id: null, detailOpen: false }, { replace: true });
   }
 });
 
@@ -1843,5 +1903,10 @@ document.addEventListener("focusout", () => {
   editing = false;
 });
 
+applyRouteFromHash();
+window.addEventListener("hashchange", () => {
+  applyRouteFromHash();
+  render();
+});
 await loadState();
 setInterval(() => loadState(), 4000);
