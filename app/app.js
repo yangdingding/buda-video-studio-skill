@@ -664,6 +664,32 @@ const canPreviewAsset = (asset) => Boolean(asset.drive_file_id);
 
 const drivePreviewUrl = (fileId) => `https://drive.google.com/file/d/${encodeURIComponent(fileId)}/preview`;
 
+const driveThumbnailUrl = (fileId) =>
+  fileId ? `https://drive.google.com/thumbnail?id=${encodeURIComponent(fileId)}&sz=w240-h160` : "";
+
+const visualAssetTypes = new Set(["raw_video", "youtube_export", "shorts_export", "video_account_export", "cover", "cover_source"]);
+
+const assetThumbnailUrl = (asset) => asset.thumbnail_url || driveThumbnailUrl(asset.drive_file_id);
+
+const assetThumbLabel = (asset) => {
+  if (asset.type === "cover" || asset.type === "cover_source") return "封面";
+  if (asset.type === "youtube_export") return "YouTube";
+  if (asset.type === "shorts_export") return "Shorts";
+  if (asset.type === "video_account_export") return "视频号";
+  return "视频";
+};
+
+const assetThumbnailHtml = (asset, { showThumbnails = false } = {}) => {
+  if (!showThumbnails || !visualAssetTypes.has(asset.type)) return "";
+  const thumbnailUrl = assetThumbnailUrl(asset);
+  const fallback = assetThumbLabel(asset);
+  return `
+    <button type="button" class="asset-thumb" ${canPreviewAsset(asset) ? `data-preview-file="${escapeHtml(asset.drive_file_id)}" data-preview-title="${escapeHtml(asset.name)}"` : ""} aria-label="预览 ${escapeHtml(asset.name)}" title="预览 ${escapeHtml(asset.name)}">
+      ${thumbnailUrl ? `<img src="${escapeHtml(thumbnailUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()" />` : ""}
+      <span>${escapeHtml(fallback)}</span>
+    </button>`;
+};
+
 const openFilePreview = (fileId, title) => {
   const preview = $("#videoPreview");
   const frame = $("#videoPreviewFrame");
@@ -832,7 +858,7 @@ const assetMoreDetailsHtml = (asset) => {
     </details>`;
 };
 
-const assetGroupsHtml = (assetsByType) => `
+const assetGroupsHtml = (assetsByType, options = {}) => `
   <div class="asset-groups">
         ${Object.entries(assetsByType)
           .map(
@@ -846,6 +872,7 @@ const assetGroupsHtml = (assetsByType) => `
                   .map(
                     (asset) => `
                       <div class="asset-link">
+                        ${assetThumbnailHtml(asset, options)}
                         <div class="asset-main">
                           <span class="asset-name">${escapeHtml(asset.name)}</span>
                         </div>
@@ -879,7 +906,7 @@ const assetsHtml = (item, assetsByType) => {
         <h4>素材文件</h4>
         <p>来自在线 Google Drive，只做读取和引用。</p>
       </div>
-      ${assetGroupsHtml(assetsByType)}
+      ${assetGroupsHtml(assetsByType, { showThumbnails: queue === "distribution_confirm" })}
     </section>`;
 };
 
