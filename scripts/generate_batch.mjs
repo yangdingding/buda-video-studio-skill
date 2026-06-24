@@ -3,6 +3,7 @@ import { createDataReader } from "../lib/data-reader/index.mjs";
 import { loadConfig } from "../lib/config.mjs";
 import { currentBatchPath, decisionsPath } from "../lib/paths.mjs";
 import { readJson, withLock, writeJson } from "../lib/common.mjs";
+import { readTopicDataSourceItems } from "../lib/topics-data-source.mjs";
 
 const isCli = import.meta.url === `file://${process.argv[1]}`;
 
@@ -78,28 +79,34 @@ export const generateBatch = async () => {
     const reader = createDataReader(loadedConfig);
     const { state, items } = await reader.listVideoItems();
     const decisions = await mergeDriveDecisionsIntoLocalCache(items);
+    const topicItems = await readTopicDataSourceItems({
+      config: loadedConfig.config,
+      decisions,
+      existingItems: items,
+    });
     const mergedItems = items.map((item) => ({
       ...item,
       decision: decisions[item.id] || item.decision || {},
     }));
+    const allItems = [...mergedItems, ...topicItems];
     const now = new Date();
     const batch = {
       batch_id: `buda-video-${now.toISOString().replace(/[-:]/g, "").slice(0, 15)}`,
       generated_at: now.toISOString(),
       source: "buda-video-studio",
       mode: "app-in-skill",
-      metrics: countMetrics(mergedItems),
+      metrics: countMetrics(allItems),
       onboarding: state.onboarding,
       drive_status: state.drive_status || null,
       config_summary: {
         ...state.config_summary,
         data_reader: reader.name,
       },
-      items: mergedItems,
+      items: allItems,
     };
 
     await writeJson(currentBatchPath, batch);
-    generated = { batch, state, itemCount: mergedItems.length };
+    generated = { batch, state, itemCount: allItems.length };
   });
 
   return generated;

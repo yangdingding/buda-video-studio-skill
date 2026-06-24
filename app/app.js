@@ -545,31 +545,39 @@ const approveButtonLabel = (item) => {
   })[queue] || "批准";
 };
 
-const distributionApprovalBarHtml = (item, locked) => {
+const distributionApprovalBarHtml = (item) => {
   if (workflowQueue(item) !== "distribution_confirm") return "";
   const decision = currentDecision(item);
-  const approvals = distributionApprovals(decision);
   const approvalCount = distributionApprovalCount(decision);
 
   return `
     <div class="drawer-approval-strip">
-      <div class="drawer-approval-title">
-        <strong>双人确认</strong>
-        <span>${approvalCount}/${distributionApprovers.length}</span>
+      <div class="drawer-approval-main">
+        <div class="drawer-approval-title">
+          <strong>双人确认</strong>
+          <span>${approvalCount}/${distributionApprovers.length}</span>
+        </div>
+        <p class="drawer-approval-copy">Kelly 和 Kelvin 都确认同一条视频已完成后，才会进入已完成。</p>
       </div>
-      <p class="drawer-approval-copy">Kelly 和 Kelvin 都是在确认同一条视频已完成；两个人都勾选后才会进入已完成。</p>
-      <div class="drawer-approval-checks">
-        ${distributionApprovers
-          .map(
-            ({ key, name, role }) => `
-              <label class="drawer-approval-check">
-                <input type="checkbox" data-distribution-approval="${escapeHtml(key)}" ${approvals[key] ? "checked" : ""} ${locked ? "disabled" : ""} />
-                <span>${escapeHtml(name)}</span>
-                <small>${escapeHtml(role)}</small>
-              </label>`
-          )
-          .join("")}
-      </div>
+    </div>`;
+};
+
+const distributionApprovalChecksHtml = (item, locked) => {
+  if (workflowQueue(item) !== "distribution_confirm") return "";
+  const approvals = distributionApprovals(currentDecision(item));
+
+  return `
+    <div class="drawer-approval-checks">
+      ${distributionApprovers
+        .map(
+          ({ key, name, role }) => `
+            <label class="drawer-approval-check">
+              <input type="checkbox" data-distribution-approval="${escapeHtml(key)}" ${approvals[key] ? "checked" : ""} ${locked ? "disabled" : ""} />
+              <span>${escapeHtml(name)}</span>
+              <small>${escapeHtml(role)}</small>
+            </label>`
+        )
+        .join("")}
     </div>`;
 };
 
@@ -679,12 +687,15 @@ const assetThumbLabel = (asset) => {
   return "视频";
 };
 
+const assetThumbClass = (asset) =>
+  asset.type === "shorts_export" ? "asset-thumb portrait" : "asset-thumb landscape";
+
 const assetThumbnailHtml = (asset, { showThumbnails = false } = {}) => {
   if (!showThumbnails || !visualAssetTypes.has(asset.type)) return "";
   const thumbnailUrl = assetThumbnailUrl(asset);
   const fallback = assetThumbLabel(asset);
   return `
-    <button type="button" class="asset-thumb" ${canPreviewAsset(asset) ? `data-preview-file="${escapeHtml(asset.drive_file_id)}" data-preview-title="${escapeHtml(asset.name)}"` : ""} aria-label="预览 ${escapeHtml(asset.name)}" title="预览 ${escapeHtml(asset.name)}">
+    <button type="button" class="${assetThumbClass(asset)}" ${canPreviewAsset(asset) ? `data-preview-file="${escapeHtml(asset.drive_file_id)}" data-preview-title="${escapeHtml(asset.name)}"` : ""} aria-label="预览 ${escapeHtml(asset.name)}" title="预览 ${escapeHtml(asset.name)}">
       ${thumbnailUrl ? `<img src="${escapeHtml(thumbnailUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()" />` : ""}
       <span>${escapeHtml(fallback)}</span>
     </button>`;
@@ -1006,6 +1017,20 @@ const coverCopyHtml = (item, decision, locked) => {
     </section>`;
 };
 
+const outputSpecsHtml = (output) => {
+  const specs = [output.aspect_ratio, output.caption ? "字幕" : "", output.cover_required ? "封面" : ""].filter(Boolean);
+  return `<span class="output-specs">${specs.map((spec) => `<span>${escapeHtml(spec)}</span>`).join("")}</span>`;
+};
+
+const outputRowHtml = (output, selectedOutputs, locked) => `
+  <label class="output-row">
+    <span class="output-main">
+      <input type="checkbox" data-output="${escapeHtml(output.channel)}" ${selectedOutputs.has(output.channel) ? "checked" : ""} ${locked ? "disabled" : ""} />
+      <span>${escapeHtml(output.channel)}</span>
+    </span>
+    ${outputSpecsHtml(output)}
+  </label>`;
+
 const outputsHtml = (item, selectedOutputs, locked) => {
   const queue = workflowQueue(item);
   if (!["editing", "cover_generation", "distribution_confirm", "done"].includes(queue)) return "";
@@ -1013,7 +1038,7 @@ const outputsHtml = (item, selectedOutputs, locked) => {
   const description =
     queue === "done"
       ? "记录这条视频实际交付或发布的平台。"
-      : "勾选这条视频实际要交付的平台；只做中文时取消 YouTube English。";
+      : "选择实际交付平台，未交付的取消勾选。";
   return `
     <section class="section">
       <div class="section-title">
@@ -1021,18 +1046,7 @@ const outputsHtml = (item, selectedOutputs, locked) => {
         <p>${description}</p>
       </div>
       <div class="output-grid">
-        ${item.outputs
-          .map(
-            (output) => `
-          <label class="output-row">
-            <span class="output-main">
-              <input type="checkbox" data-output="${escapeHtml(output.channel)}" ${selectedOutputs.has(output.channel) ? "checked" : ""} ${locked ? "disabled" : ""} />
-              <span>${escapeHtml(output.channel)}</span>
-            </span>
-            <small>${escapeHtml(output.aspect_ratio)} · ${output.caption ? "字幕" : "无字幕"} · ${output.cover_required ? "要封面" : "不强制封面"}</small>
-          </label>`
-          )
-          .join("")}
+        ${item.outputs.map((output) => outputRowHtml(output, selectedOutputs, locked)).join("")}
       </div>
 	    </section>`;
 };
@@ -1648,17 +1662,23 @@ const renderDetail = () => {
     </section>
 
     <div class="drawer-actions">
-      ${distributionApprovalBarHtml(item, locked)}
+      ${distributionApprovalBarHtml(item)}
       <div class="drawer-action-buttons">
+        ${distributionApprovalChecksHtml(item, locked)}
         ${
           queue === "done"
             ? `<button class="action-button primary" data-action="${escapeHtml(decision.action || "approve")}" ${locked ? "disabled" : ""} title="保存已发布链接">保存链接</button>`
             : `<button class="action-button primary" data-action="approve" ${approveDisabled ? "disabled" : ""} title="${queue === "recording" ? "录制人上传素材后会进入下一步" : queue === "waiting_upload" ? (allowManualEditing ? "口播稿和原始视频已齐，可以先进入剪辑；封面后补" : "口播稿和原始视频至少齐了以后再进入剪辑") : queue === "editing" ? "等渠道导出视频出现后自动进入下一步" : queue === "distribution_confirm" ? "保存当前勾选的分发确认；Kelly 和 Kelvin 都确认后才进入已完成" : isWorkflowDone(item) ? "这条视频已确认完成" : "确认进入下一步"}">${escapeHtml(approveButtonLabel(item))}</button>`
         }
         ${queue === "done" ? "" : `<button class="action-button" data-save-only="true" data-action="${escapeHtml(decision.action || "")}" ${locked ? "disabled" : ""} title="只保存负责人、交付时间、录制状态和备注，不推进流程">保存信息</button>`}
-        <button class="action-button" data-action="revise" ${locked ? "disabled" : ""} title="保存修改意见">要修改</button>
-        <button class="action-button danger" data-action="block" ${locked ? "disabled" : ""} title="缺素材或方向，先阻塞">阻塞</button>
-        <button class="action-button" data-action="no_action" ${locked ? "disabled" : ""} title="这条暂时跳过">跳过</button>
+        <details class="drawer-more-actions">
+          <summary>更多</summary>
+          <div>
+            <button class="action-button" data-action="revise" ${locked ? "disabled" : ""} title="保存修改意见">要修改</button>
+            ${queue === "distribution_confirm" ? "" : `<button class="action-button danger" data-action="block" ${locked ? "disabled" : ""} title="缺素材或方向，先阻塞">阻塞</button>`}
+            <button class="action-button" data-action="no_action" ${locked ? "disabled" : ""} title="这条暂时跳过">跳过</button>
+          </div>
+        </details>
       </div>
     </div>`;
 

@@ -54,6 +54,14 @@ video_library:
   video_account_folder_names:
     - "视频号"
 
+topic_sources:
+  enabled: true
+  # Optional external topic data source. If omitted, the generator auto-detects:
+  # - BUDA_VIDEO_TOPICS_CSV
+  # - /agent/选题表/topics.csv
+  # - ~/选题表/topics.csv
+  csv_path: ""
+
 video_rules:
   # Required production checks: voiceover markdown/subtitle, PNG/JPG cover source/material,
   # and raw video. A final cover under Covers also satisfies the cover-material check.
