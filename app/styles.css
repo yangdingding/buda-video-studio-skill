@@ -498,6 +498,7 @@ textarea::placeholder {
 textarea {
   min-height: 92px;
   resize: vertical;
+  scroll-margin-bottom: 190px;
 }
 
 label {
@@ -775,7 +776,8 @@ label {
   overflow: auto;
   border-left: 1px solid color-mix(in oklch, var(--line) 76%, transparent);
   background: var(--panel);
-  padding: 0 30px 76px;
+  padding: 0 30px 190px;
+  scroll-padding-bottom: 190px;
   box-shadow: -16px 0 42px rgba(53, 43, 24, 0.08);
 }
 
@@ -2037,7 +2039,8 @@ textarea:disabled {
   .detail-pane {
     width: 100vw;
     height: 100dvh;
-    padding: 0 16px 92px;
+    padding: 0 16px 220px;
+    scroll-padding-bottom: 220px;
   }
 
   .drawer-top {
@@ -2108,6 +2111,7 @@ textarea:disabled {
 
   textarea {
     min-height: 96px;
+    scroll-margin-bottom: 220px;
   }
 
   .drawer-actions {
