@@ -674,6 +674,8 @@ const canPreviewAsset = (asset) => Boolean(asset.drive_file_id);
 
 const drivePreviewUrl = (fileId) => `https://drive.google.com/file/d/${encodeURIComponent(fileId)}/preview`;
 
+const assetOpenUrl = (asset) => asset.folder_url || asset.absolute_path || "";
+
 const driveThumbnailUrl = (fileId) =>
   fileId ? `/api/thumbnail/${encodeURIComponent(fileId)}` : "";
 
@@ -908,7 +910,7 @@ const assetGroupsHtml = (assetsByType, options = {}) => `
                                 ? `<button type="button" class="asset-action" data-preview-file="${escapeHtml(asset.drive_file_id)}" data-preview-title="${escapeHtml(asset.name)}">预览</button>`
                                 : ""
                             }
-                            <a class="asset-action" href="${escapeHtml(asset.absolute_path)}" target="_blank" rel="noreferrer">打开</a>
+                            <a class="asset-action" href="${escapeHtml(assetOpenUrl(asset))}" target="_blank" rel="noreferrer" title="${escapeHtml(asset.folder_url ? "打开所在 Google Drive 文件夹" : "打开 Google Drive 文件")}">打开</a>
                             ${assetMoreDetailsHtml(asset)}
                           </div>
                         </div>
