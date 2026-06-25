@@ -296,7 +296,11 @@ const productionDueDate = (item) => {
 
 const recordingStatusLabel = (item) => {
   const decision = currentDecision(item);
-  return decision.recording_status || item.recording_status || (decision.workflow_step === "assigned_recording" ? "已分配" : "未分配");
+  const saved = decision.recording_status || item.recording_status || "";
+  if (saved && saved !== "未分配") return saved;
+  if (hasReadyCheck(item, "raw_video") || hasReadyCheck(item, "voiceover")) return "已上传";
+  if (decision.workflow_step === "assigned_recording" || productionOwner(item) !== "未分配" || productionDueDate(item)) return "已分配";
+  return "未分配";
 };
 
 const hasManualProductionPlan = (item) => {
@@ -1023,10 +1027,11 @@ const assetsHtml = (item, assetsByType) => {
     </section>`;
 };
 
-const archivedAssetsHtml = (item, assetsByType) => {
+const archivedAssetsHtml = (item, assetsByType, options = {}) => {
   if (!hasAssets(assetsByType)) return "";
+  const open = options.defaultOpen || openArchivedAssetIds.has(item.id);
   return `
-    <details class="section archived-assets" data-archived-assets="${escapeHtml(item.id)}" ${openArchivedAssetIds.has(item.id) ? "open" : ""}>
+    <details class="section archived-assets" data-archived-assets="${escapeHtml(item.id)}" ${open ? "open" : ""}>
       <summary>
         <span class="archived-assets-title">
           <strong>相关素材</strong>
@@ -1259,9 +1264,9 @@ const detailBodyHtml = (item, assetsByType, selectedOutputs, decision, locked) =
     waiting_upload: `
       ${productionMetaHtml(item, locked)}
       ${missingFocusHtml(item)}
-      ${assetReviewHtml(item, locked)}
       ${recordingBriefHtml(item)}
-      ${archivedAssetsHtml(item, sourceAssets)}`,
+      ${archivedAssetsHtml(item, sourceAssets, { defaultOpen: true })}
+      ${assetReviewHtml(item, locked)}`,
     material_review: `
       ${requiredChecksHtml(item)}
       ${assetReviewHtml(item, locked)}
@@ -2032,7 +2037,7 @@ const saveDecision = async (id, action, options = {}) => {
             : effectiveAction === "approve" && queue === "cover_generation"
               ? "cover_done"
               : decision.workflow_step || "";
-  const selectedRecordingStatus = inputValue("#recordingStatus", decision.recording_status || "");
+  const selectedRecordingStatus = inputValue("#recordingStatus", recordingStatusLabel(item));
   const recordingStatus =
     effectiveAction === "approve" && queue === "assignment" && (!selectedRecordingStatus || selectedRecordingStatus === "未分配")
       ? "已分配"
