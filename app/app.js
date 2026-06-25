@@ -378,7 +378,27 @@ const currentDecision = (item) => state?.decisions?.[item.id] || item.decision |
 
 const itemAssetCount = (item, type) => item.source_assets.filter((asset) => asset.type === type).length;
 
-const requiredChecks = (item) => item.required_checks || [];
+const requiredAssetKeys = ["raw_video", "voiceover", "cover_source"];
+
+const assetReviewOverrides = (item) => {
+  const value = currentDecision(item).asset_overrides;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return value;
+};
+
+const requiredChecks = (item) =>
+  (item.required_checks || []).map((check) => {
+    const override = assetReviewOverrides(item)[check.key];
+    if (override === "rejected") {
+      return {
+        ...check,
+        ready: false,
+        manually_rejected: true,
+        hint: `${check.label}已被人工标记为不对，需要重新补齐。`,
+      };
+    }
+    return check;
+  });
 
 const missingCheck = (item, key) => requiredChecks(item).some((check) => check.key === key && !check.ready);
 
@@ -889,6 +909,36 @@ const requiredChecksHtml = (item) => {
     </section>`;
 };
 
+const assetReviewHtml = (item, locked) => {
+  const queue = workflowQueue(item);
+  if (!["waiting_upload", "material_review", "edit_output"].includes(queue)) return "";
+  const overrides = assetReviewOverrides(item);
+  const checks = requiredChecks(item).filter((check) => requiredAssetKeys.includes(check.key));
+  if (checks.length === 0) return "";
+
+  return `
+    <section class="section compact asset-review">
+      <div class="section-title">
+        <h4>素材核对</h4>
+        <p>文件存在但内容不对时，在这里标记；保存后会按缺失处理。</p>
+      </div>
+      <div class="asset-review-grid">
+        ${checks
+          .map(
+            (check) => `
+              <label class="asset-review-row ${overrides[check.key] === "rejected" ? "rejected" : ""}">
+                <input type="checkbox" data-asset-reject="${escapeHtml(check.key)}" ${overrides[check.key] === "rejected" ? "checked" : ""} ${locked ? "disabled" : ""} />
+                <span>
+                  <strong>${escapeHtml(check.label)}不对</strong>
+                  <small>${escapeHtml(check.count ? `Drive 已找到 ${check.count} 个文件，可人工退回。` : "当前自动识别为缺失。")}</small>
+                </span>
+              </label>`
+          )
+          .join("")}
+      </div>
+    </section>`;
+};
+
 const assetMoreDetailsHtml = (asset) => {
   const rows = [
     ["文件路径", asset.path],
@@ -1207,10 +1257,12 @@ const detailBodyHtml = (item, assetsByType, selectedOutputs, decision, locked) =
     waiting_upload: `
       ${productionMetaHtml(item, locked)}
       ${missingFocusHtml(item)}
+      ${assetReviewHtml(item, locked)}
       ${recordingBriefHtml(item)}
       ${archivedAssetsHtml(item, sourceAssets)}`,
     material_review: `
       ${requiredChecksHtml(item)}
+      ${assetReviewHtml(item, locked)}
       ${outputsHtml(item, selectedOutputs, locked)}
       ${assetsHtml(item, sourceCoreAssets)}
       ${queueGuideHtml("检查重点", "确认口播稿、封面素材和原始视频是否真的能进入后期。", [
@@ -1225,6 +1277,7 @@ const detailBodyHtml = (item, assetsByType, selectedOutputs, decision, locked) =
       ${archivedAssetsHtml(item, sourceCoreAssets)}`,
     edit_output: `
       ${editBriefHtml(item)}
+      ${assetReviewHtml(item, locked)}
       ${outputsHtml(item, selectedOutputs, locked)}
       ${assetsHtml(item, sourceCoreAssets)}
       ${archivedAssetsHtml(item, coverAssets)}`,
@@ -1580,7 +1633,7 @@ const renderList = () => {
           keys
             .map((key) => {
               const check = checkByKey[key];
-              const count = (item.source_assets || []).filter((asset) => asset.type === key).length;
+              const count = check?.count || (item.source_assets || []).filter((asset) => asset.type === key).length;
               return `
                     <div class="asset-cell" data-label="${escapeHtml(check?.label || key)}">
                       <span class="asset-state ${check?.ready ? "ready" : "missing"}">${check?.ready ? `✓ ${count || 1}` : "❌ 缺"}</span>
@@ -1933,6 +1986,19 @@ const saveDecision = async (id, action, options = {}) => {
       ? decision.published_links
       : {};
   const distributionApprovalInputs = [...document.querySelectorAll("[data-distribution-approval]")];
+  const assetRejectInputs = [...document.querySelectorAll("[data-asset-reject]")];
+  const previousAssetOverrides =
+    decision.asset_overrides && typeof decision.asset_overrides === "object" && !Array.isArray(decision.asset_overrides)
+      ? decision.asset_overrides
+      : {};
+  const assetOverrides = assetRejectInputs.length
+    ? Object.fromEntries(
+        requiredAssetKeys.map((key) => [
+          key,
+          assetRejectInputs.find((input) => input.dataset.assetReject === key)?.checked ? "rejected" : "",
+        ])
+      )
+    : previousAssetOverrides;
   const nextDistributionApprovals = distributionApprovalInputs.length
     ? Object.fromEntries(
         distributionApprovers.map(({ key }) => [
@@ -1987,6 +2053,7 @@ const saveDecision = async (id, action, options = {}) => {
       cover_en_title: inputValue("#coverEnTitle", decision.cover_en_title || ""),
       cover_en_subtitle: inputValue("#coverEnSubtitle", decision.cover_en_subtitle || ""),
       outputs,
+      asset_overrides: assetOverrides,
       published_links: publishedLinkInputs.length ? publishedLinks : previousPublishedLinks,
       distribution_approvals: nextDistributionApprovals,
       workflow_step: workflowStep,

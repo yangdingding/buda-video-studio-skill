@@ -19,6 +19,12 @@ const normalizeDistributionApprovals = (value) => ({
   kelvin: Boolean(value?.kelvin),
 });
 
+const normalizeAssetOverrides = (value) => ({
+  raw_video: value?.raw_video === "rejected" ? "rejected" : "",
+  voiceover: value?.voiceover === "rejected" ? "rejected" : "",
+  cover_source: value?.cover_source === "rejected" ? "rejected" : "",
+});
+
 const hasDistributionApprovals = (value) =>
   Object.values(normalizeDistributionApprovals(value)).every(Boolean);
 
@@ -80,6 +86,9 @@ export const saveDecision = async (payload) => {
   const distributionApprovals = Object.prototype.hasOwnProperty.call(payload, "distribution_approvals")
     ? normalizeDistributionApprovals(payload.distribution_approvals)
     : normalizeDistributionApprovals(previous.distribution_approvals);
+  const assetOverrides = Object.prototype.hasOwnProperty.call(payload, "asset_overrides")
+    ? normalizeAssetOverrides(payload.asset_overrides)
+    : normalizeAssetOverrides(previous.asset_overrides);
   const workflowDone = Boolean((payload.workflow_done || previous.workflow_done) && hasDistributionApprovals(distributionApprovals));
   decisions[payload.id] = {
     action: payload.action || "",
@@ -96,6 +105,7 @@ export const saveDecision = async (payload) => {
     cover_en_title: payload.cover_en_title || "",
     cover_en_subtitle: payload.cover_en_subtitle || "",
     outputs: Array.isArray(payload.outputs) ? payload.outputs : [],
+    asset_overrides: assetOverrides,
     published_links:
       payload.published_links && typeof payload.published_links === "object" && !Array.isArray(payload.published_links)
         ? payload.published_links

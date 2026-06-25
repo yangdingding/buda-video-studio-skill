@@ -1011,6 +1011,53 @@ label {
   color: var(--amber);
 }
 
+.asset-review-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.asset-review-row {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 10px;
+  cursor: pointer;
+}
+
+.asset-review-row.rejected {
+  border-color: color-mix(in oklch, #df7d78 55%, var(--line-soft));
+  background: color-mix(in oklch, #fff0ef 70%, var(--panel));
+}
+
+.asset-review-row input {
+  flex: 0 0 auto;
+  width: auto;
+  margin-top: 2px;
+}
+
+.asset-review-row span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.asset-review-row strong {
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 520;
+  line-height: 1.25;
+}
+
+.asset-review-row small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 .missing-list {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2228,7 +2275,8 @@ textarea:disabled {
 
   .metrics,
   .decision-summary,
-  .check-grid {
+  .check-grid,
+  .asset-review-grid {
     grid-template-columns: 1fr;
   }
 
