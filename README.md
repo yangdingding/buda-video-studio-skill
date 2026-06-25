@@ -95,7 +95,7 @@ topic_sources:
   buda_drive_url: "https://buda.im/agents/.../drive?folder=...&file=选题表/topics.csv"
 ```
 
-The file can be a Google Sheet or CSV with columns such as `topic`, `status`, `owner`, `due_date`, `priority`, `source`, and `note`. Chinese headers are also supported: `选题`, `状态`, `负责人`, `交付时间`, `优先级`, `来源`, `备注`.
+The file can be a Google Sheet or CSV with columns such as `topic`, `status`, `owner`, `due_date`, `priority`, `source`, and `note`/`description`. Chinese headers are also supported: `选题`, `状态`, `负责人`, `交付时间`, `优先级`, `来源`, `备注`, `描述`, `内容`, `摘要`, `选题说明`.
 
 If the Drive topic sheet is temporarily unavailable, the generator preserves existing topic rows from the previous batch instead of clearing the topic board.
 
