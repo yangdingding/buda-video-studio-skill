@@ -104,6 +104,7 @@ const assetLabels = {
   youtube_export: "YouTube",
   shorts_export: "Shorts",
   video_account_export: "视频号",
+  social_export: "社媒导出",
 };
 
 const evidenceLabels = {
@@ -116,6 +117,7 @@ const evidenceLabels = {
   youtube_export: "YouTube",
   shorts_export: "Shorts",
   video_account_export: "视频号",
+  social_export: "社媒导出",
 };
 
 const escapeHtml = (value) =>
@@ -146,9 +148,21 @@ const selectedOutputChannels = (item) => normalizeSavedOutputs(item, currentDeci
 
 const defaultRequiredOutputChannels = ["YouTube 中文", "YouTube English", "视频号"];
 
+const inferredDefaultOutputChannels = (item) => {
+  const evidence = item.rule?.evidence || {};
+  const hasSocialOnlyExport =
+    channelEvidenceCount(item, "social_export") > 0 &&
+    channelEvidenceCount(item, "youtube_export") === 0 &&
+    channelEvidenceCount(item, "shorts_export") === 0 &&
+    channelEvidenceCount(item, "video_account_export") === 0;
+  if (hasSocialOnlyExport) return ["Twitter"];
+  if (evidence.social_export && !evidence.youtube_export && !evidence.shorts_export && !evidence.video_account_export) return ["Twitter"];
+  return defaultRequiredOutputChannels;
+};
+
 const selectedOrDefaultOutputChannels = (item) => {
   const selected = selectedOutputChannels(item);
-  return selected.size > 0 ? selected : new Set(defaultRequiredOutputChannels);
+  return selected.size > 0 ? selected : new Set(inferredDefaultOutputChannels(item));
 };
 
 const channelRequirementLabel = (item) => {
@@ -395,7 +409,9 @@ const hasShortsExport = (item) => channelEvidenceCount(item, "shorts_export") > 
 
 const hasVideoAccountExport = (item) => channelEvidenceCount(item, "video_account_export") > 0;
 
-const hasAnyChannelExport = (item) => hasYoutubeExport(item) || hasShortsExport(item) || hasVideoAccountExport(item);
+const hasSocialExport = (item) => channelEvidenceCount(item, "social_export") > 0;
+
+const hasAnyChannelExport = (item) => hasYoutubeExport(item) || hasShortsExport(item) || hasVideoAccountExport(item) || hasSocialExport(item);
 
 const selectedChannelExportChecks = (item) => {
   const selected = selectedOrDefaultOutputChannels(item);
@@ -423,6 +439,14 @@ const selectedChannelExportChecks = (item) => {
       key: "video_account_export",
       label: "视频号",
       ready: hasVideoAccountExport(item),
+    });
+  }
+
+  if (selected.has("Twitter") || selected.has("X")) {
+    checks.push({
+      key: "social_export",
+      label: selected.has("X") ? "X" : "Twitter",
+      ready: hasSocialExport(item),
     });
   }
 
@@ -613,7 +637,7 @@ const requiredCheckSummary = (item) =>
 const assetTypes = {
   source: ["raw_video", "voiceover", "script", "transcript", "cover_source", "cover"],
   sourceCore: ["raw_video", "voiceover", "script", "transcript", "cover_source"],
-  exports: ["youtube_export", "shorts_export", "video_account_export"],
+  exports: ["youtube_export", "shorts_export", "video_account_export", "social_export"],
   cover: ["cover"],
 };
 
@@ -689,7 +713,7 @@ const assetOpenUrl = (asset) => asset.folder_url || asset.absolute_path || "";
 const driveThumbnailUrl = (fileId) =>
   fileId ? `/api/thumbnail/${encodeURIComponent(fileId)}` : "";
 
-const visualAssetTypes = new Set(["raw_video", "youtube_export", "shorts_export", "video_account_export", "cover", "cover_source"]);
+const visualAssetTypes = new Set(["raw_video", "youtube_export", "shorts_export", "video_account_export", "social_export", "cover", "cover_source"]);
 
 const assetThumbnailUrl = (asset) => asset.thumbnail_url || driveThumbnailUrl(asset.drive_file_id);
 
@@ -698,13 +722,14 @@ const assetThumbLabel = (asset) => {
   if (asset.type === "youtube_export") return "YouTube";
   if (asset.type === "shorts_export") return "Shorts";
   if (asset.type === "video_account_export") return "视频号";
+  if (asset.type === "social_export") return "社媒导出";
   return "视频";
 };
 
 const assetThumbClass = (asset) =>
   asset.type === "shorts_export" ? "asset-thumb portrait" : "asset-thumb landscape";
 
-const exportAssetTypes = new Set(["youtube_export", "shorts_export", "video_account_export"]);
+const exportAssetTypes = new Set(["youtube_export", "shorts_export", "video_account_export", "social_export"]);
 
 const thumbnailFallbackUrl = (asset, { coverThumbnailFileId = "" } = {}) => {
   if (!exportAssetTypes.has(asset.type) || !coverThumbnailFileId || coverThumbnailFileId === asset.drive_file_id) return "";
@@ -1062,12 +1087,14 @@ const outputRowHtml = (output, selectedOutputs, locked) => `
 
 const outputsHtml = (item, selectedOutputs, locked) => {
   const queue = workflowQueue(item);
-  if (!["editing", "cover_generation", "distribution_confirm", "done"].includes(queue)) return "";
+  if (!["material_review", "edit_output", "editing", "cover_generation", "distribution_confirm", "done"].includes(queue)) return "";
   const title = queue === "done" ? "已交付渠道" : "输出渠道";
   const description =
     queue === "done"
       ? "记录这条视频实际交付或发布的平台。"
-      : "选择实际交付平台，未交付的取消勾选。";
+      : ["material_review", "edit_output"].includes(queue)
+        ? "在交给后期前确定实际交付平台；后续自动按这些平台检查导出是否齐。"
+        : "选择实际交付平台，未交付的取消勾选。";
   return `
     <section class="section">
       <div class="section-title">
@@ -1188,6 +1215,7 @@ const detailBodyHtml = (item, assetsByType, selectedOutputs, decision, locked) =
       ${archivedAssetsHtml(item, sourceAssets)}`,
     material_review: `
       ${requiredChecksHtml(item)}
+      ${outputsHtml(item, selectedOutputs, locked)}
       ${assetsHtml(item, sourceCoreAssets)}
       ${queueGuideHtml("检查重点", "确认口播稿、封面素材和原始视频是否真的能进入后期。", [
         "口播稿中英文是否齐全、方向是否明确",
@@ -1201,6 +1229,7 @@ const detailBodyHtml = (item, assetsByType, selectedOutputs, decision, locked) =
       ${archivedAssetsHtml(item, sourceCoreAssets)}`,
     edit_output: `
       ${editBriefHtml(item)}
+      ${outputsHtml(item, selectedOutputs, locked)}
       ${assetsHtml(item, sourceCoreAssets)}
       ${archivedAssetsHtml(item, coverAssets)}`,
     editing: `
@@ -1896,7 +1925,7 @@ const saveDecision = async (id, action, options = {}) => {
     ? outputInputs.filter((input) => input.checked).map((input) => input.dataset.output)
     : Array.isArray(decision.outputs)
       ? decision.outputs
-      : [];
+      : [...selectedOrDefaultOutputChannels(item)];
   const publishedLinkInputs = [...document.querySelectorAll("[data-published-link]")];
   const publishedLinks = Object.fromEntries(
     publishedLinkInputs

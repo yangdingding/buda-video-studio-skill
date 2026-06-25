@@ -53,6 +53,10 @@ video_library:
     - "Shorts"
   video_account_folder_names:
     - "视频号"
+  social_export_folder_names:
+    - "Twitter"
+    - "X"
+    - "X Twitter"
 
 topic_sources:
   enabled: true
