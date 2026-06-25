@@ -919,7 +919,9 @@ const assetReviewHtml = (item, locked) => {
   const queue = workflowQueue(item);
   if (!["waiting_upload", "material_review", "edit_output"].includes(queue)) return "";
   const overrides = assetReviewOverrides(item);
-  const checks = requiredChecks(item).filter((check) => requiredAssetKeys.includes(check.key));
+  const checks = requiredAssetKeys
+    .map((key) => requiredChecks(item).find((check) => check.key === key))
+    .filter(Boolean);
   if (checks.length === 0) return "";
 
   return `
