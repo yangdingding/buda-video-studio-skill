@@ -3,7 +3,7 @@ import { createDataReader } from "../lib/data-reader/index.mjs";
 import { loadConfig } from "../lib/config.mjs";
 import { currentBatchPath, decisionsPath } from "../lib/paths.mjs";
 import { readJson, withLock, writeJson } from "../lib/common.mjs";
-import { readTopicDataSourceItems } from "../lib/topics-data-source.mjs";
+import { readTopicDataSourceItems, topicDataSourceAvailable } from "../lib/topics-data-source.mjs";
 
 const isCli = import.meta.url === `file://${process.argv[1]}`;
 
@@ -72,6 +72,18 @@ const mergeDriveDecisionsIntoLocalCache = async (items) => {
   return decisions;
 };
 
+const existingTopicDataSourceItems = async () => {
+  const previousBatch = await readJson(currentBatchPath, { items: [] });
+  return (previousBatch.items || []).filter((item) => item.category === "topic_data_source");
+};
+
+const mergeTopicDataSourceItems = (previousTopicItems, freshTopicItems) => {
+  const itemsById = new Map();
+  for (const item of previousTopicItems) itemsById.set(item.id, item);
+  for (const item of freshTopicItems) itemsById.set(item.id, item);
+  return [...itemsById.values()];
+};
+
 export const generateBatch = async () => {
   let generated = null;
   await withLock("Generating video production batch", async () => {
@@ -79,11 +91,14 @@ export const generateBatch = async () => {
     const reader = createDataReader(loadedConfig);
     const { state, items } = await reader.listVideoItems();
     const decisions = await mergeDriveDecisionsIntoLocalCache(items);
-    const topicItems = await readTopicDataSourceItems({
+    const hasTopicDataSource = await topicDataSourceAvailable(loadedConfig.config);
+    const previousTopicItems = hasTopicDataSource ? [] : await existingTopicDataSourceItems();
+    const freshTopicItems = await readTopicDataSourceItems({
       config: loadedConfig.config,
       decisions,
       existingItems: items,
     });
+    const topicItems = mergeTopicDataSourceItems(previousTopicItems, freshTopicItems);
     const mergedItems = items.map((item) => ({
       ...item,
       decision: decisions[item.id] || item.decision || {},

@@ -56,8 +56,17 @@ video_library:
 
 topic_sources:
   enabled: true
-  # Optional external topic data source. If omitted, the generator auto-detects:
+  # Preferred: App Buda Drive topic sheet file. Supports Google Sheets or CSV.
+  # You can paste either the file id or the full Drive file URL.
+  drive_file_id: ""
+  drive_file_url: ""
+  # Buda Drive UI link fallback. In Web Buda/agent environments this resolves to
+  # /agent/<file query path>, for example /agent/选题表/topics.csv.
+  buda_drive_url: ""
+  buda_file_path: ""
+  # Optional local CSV fallback. If omitted, the generator auto-detects:
   # - BUDA_VIDEO_TOPICS_CSV
+  # - app/.cache/topics.csv
   # - /agent/选题表/topics.csv
   # - ~/选题表/topics.csv
   csv_path: ""

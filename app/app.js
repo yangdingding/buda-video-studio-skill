@@ -20,6 +20,7 @@ let search = "";
 let editing = false;
 let syncing = false;
 let isApplyingRoute = false;
+const openArchivedAssetIds = new Set();
 
 const $ = (selector) => document.querySelector(selector);
 
@@ -375,6 +376,10 @@ const hasReadyCheck = (item, key) => requiredChecks(item).some((check) => check.
 
 const missingRequiredKeys = (item) => requiredChecks(item).filter((check) => !check.ready).map((check) => check.key);
 
+const missingRequiredLabels = (item) => requiredChecks(item).filter((check) => !check.ready).map((check) => check.label);
+
+const missingRequiredLabelText = (item) => missingRequiredLabels(item).join("、");
+
 const allRequiredReady = (item) => requiredChecks(item).length > 0 && requiredChecks(item).every((check) => check.ready);
 
 const canStartEditingWithoutCover = (item) => {
@@ -484,12 +489,16 @@ const workflowLabel = (item) =>
     blocked: "阻塞",
   })[workflowQueue(item)] || "全部";
 
-const nextStepLabel = (item) =>
-  ({
+const nextStepLabel = (item) => {
+  const queue = workflowQueue(item);
+  if (queue === "waiting_upload") {
+    const missingText = missingRequiredLabelText(item);
+    return missingText ? `等待录制人补齐${missingText}` : "素材已齐，可以进入后期确认";
+  }
+  return ({
     topic_board: "确认选题是否要进入录制计划",
     assignment: "分配录制人和交付时间",
     recording: "等待录制人完成录制并上传素材",
-    waiting_upload: "等待录制人补齐口播稿、原始视频和封面素材",
     material_review: "确认素材质量并交给后期",
     edit_output: "交给后期开始剪辑",
     editing: "等待后期导出各渠道视频",
@@ -497,7 +506,8 @@ const nextStepLabel = (item) =>
     distribution_confirm: "Kelly 和 Kelvin 都确认完成状态",
     done: "流程已完成",
     blocked: "先处理阻塞原因",
-  })[workflowQueue(item)] || "检查视频状态";
+  })[queue] || "检查视频状态";
+};
 
 const detailTitle = (item) =>
   ({
@@ -943,7 +953,7 @@ const assetsHtml = (item, assetsByType) => {
 const archivedAssetsHtml = (item, assetsByType) => {
   if (!hasAssets(assetsByType)) return "";
   return `
-    <details class="section archived-assets">
+    <details class="section archived-assets" data-archived-assets="${escapeHtml(item.id)}" ${openArchivedAssetIds.has(item.id) ? "open" : ""}>
       <summary>
         <span class="archived-assets-title">
           <strong>相关素材</strong>
@@ -1243,6 +1253,19 @@ const reviewNoteHint = (item) => {
   if (queue === "waiting_upload") return "记录还缺什么素材、谁来补、什么时候补齐。";
   if (queue === "done") return "记录发布后的补充说明、异常或复盘事项。";
   return "写给后期、设计或分发同事看的具体动作。";
+};
+
+const reviewNotePlaceholder = (item) => {
+  const queue = workflowQueue(item);
+  if (queue === "topic_board") return "例如：适合演示哪类场景，是否先放弃。";
+  if (queue === "assignment") return "例如：负责人、交付时间或录制注意事项。";
+  if (queue === "recording") return "例如：录制进度、风险或需要提醒的动作。";
+  if (queue === "waiting_upload") {
+    const missingText = missingRequiredLabelText(item);
+    return missingText ? `例如：${missingText} - 小明周五前补齐。` : "例如：素材已齐，可以先进入后期。";
+  }
+  if (queue === "done") return "例如：发布链接异常、复盘事项或补充说明。";
+  return "例如：给后期、设计或分发同事的具体动作。";
 };
 
 const filteredItems = () =>
@@ -1677,7 +1700,7 @@ const renderDetail = () => {
         <h4>${escapeHtml(reviewNoteLabel(item))}</h4>
         <p>${escapeHtml(reviewNoteHint(item))}</p>
       </div>
-      <textarea id="reviewNote" ${locked ? "disabled" : ""} placeholder="${escapeHtml(reviewNoteHint(item))}">${escapeHtml(decision.comment || "")}</textarea>
+      <textarea id="reviewNote" ${locked ? "disabled" : ""} placeholder="${escapeHtml(reviewNotePlaceholder(item))}">${escapeHtml(decision.comment || "")}</textarea>
     </section>
 
     <div class="drawer-actions">
@@ -1764,6 +1787,14 @@ const renderDetail = () => {
   document.querySelectorAll("[data-preview-file]").forEach((button) => {
     button.addEventListener("click", () => {
       openFilePreview(button.dataset.previewFile, button.dataset.previewTitle);
+    });
+  });
+  document.querySelectorAll("[data-archived-assets]").forEach((details) => {
+    details.addEventListener("toggle", () => {
+      const id = details.dataset.archivedAssets;
+      if (!id) return;
+      if (details.open) openArchivedAssetIds.add(id);
+      else openArchivedAssetIds.delete(id);
     });
   });
   $("#closeDetail")?.addEventListener("click", () => {
