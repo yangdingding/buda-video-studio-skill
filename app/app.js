@@ -378,7 +378,9 @@ const currentDecision = (item) => state?.decisions?.[item.id] || item.decision |
 
 const itemAssetCount = (item, type) => item.source_assets.filter((asset) => asset.type === type).length;
 
-const requiredAssetKeys = ["raw_video", "voiceover", "cover_source"];
+const requiredAssetKeys = ["raw_video", "cover_source", "voiceover"];
+
+const assetReviewLabel = (check) => (check.key === "raw_video" ? "原始视频" : check.label);
 
 const assetReviewOverrides = (item) => {
   const value = currentDecision(item).asset_overrides;
@@ -929,7 +931,7 @@ const assetReviewHtml = (item, locked) => {
               <label class="asset-review-row ${overrides[check.key] === "rejected" ? "rejected" : ""}">
                 <input type="checkbox" data-asset-reject="${escapeHtml(check.key)}" ${overrides[check.key] === "rejected" ? "checked" : ""} ${locked ? "disabled" : ""} />
                 <span>
-                  <strong>${escapeHtml(check.label)}不对</strong>
+                  <strong>${escapeHtml(assetReviewLabel(check))}不对</strong>
                   <small>${escapeHtml(check.count ? `Drive 已找到 ${check.count} 个文件，可人工退回。` : "当前自动识别为缺失。")}</small>
                 </span>
               </label>`
