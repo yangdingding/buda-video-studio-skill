@@ -355,16 +355,12 @@ const reasonLabel = (reason) =>
 const rowSummaryLabel = (item) => {
   const summary = String(item.summary || "").trim();
   if (summary && !/cloud asset\(s\) found in Google Drive/i.test(summary)) return summary;
-  const queue = workflowQueue(item);
-  if (queue === "topic_board") return "确认这个方向是否值得进入录制。";
-  if (queue === "assignment") return "等待分配录制负责人和交付时间。";
-  if (queue === "recording") return "已分配录制，等待素材上传。";
-  if (queue === "waiting_upload") return "素材未齐，先看右侧三项缺口。";
-  if (queue === "edit_output") return "素材已确认，准备交给后期剪辑。";
-  if (queue === "editing") return "后期剪辑中，等待渠道导出文件。";
-  if (queue === "cover_generation") return "已有剪辑输出，等待最终封面上传到 Covers。";
-  if (queue === "distribution_confirm") return "已有剪辑输出，待确认分发渠道和发布链接。";
-  return reasonLabel(item.reason);
+  return "";
+};
+
+const rowSummaryHtml = (item) => {
+  const summary = rowSummaryLabel(item);
+  return summary ? `<p class="row-summary">${escapeHtml(summary)}</p>` : "";
 };
 
 const coverSourceLabel = (item) => {
@@ -1550,7 +1546,7 @@ const renderList = () => {
           <div class="video-main">
             <div class="queue-code">${escapeHtml(item.ref.replace(/^Video/i, "Topic"))}</div>
             <div class="row-title">${escapeHtml(item.title)}</div>
-            <p class="row-summary">${escapeHtml(rowSummaryLabel(item))}</p>
+            ${rowSummaryHtml(item)}
           </div>
           <div class="stage-cell" data-label="来源">
             <span class="stage-text">${escapeHtml(topicSourceLabel(item))}</span>
@@ -1596,7 +1592,7 @@ const renderList = () => {
           <div class="video-main">
             <div class="queue-code">${escapeHtml(item.ref)}</div>
             <div class="row-title">${escapeHtml(item.title)}</div>
-            <p class="row-summary">${escapeHtml(rowSummaryLabel(item))}</p>
+            ${rowSummaryHtml(item)}
           </div>
           <div class="stage-cell" data-label="阶段">
             <span class="stage-text">${escapeHtml(workflowLabel(item))}</span>
