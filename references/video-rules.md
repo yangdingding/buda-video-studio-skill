@@ -31,7 +31,7 @@ Rules are evaluated from highest to lowest priority:
 
 1. `distribution_ready` + `to_approve`: the selected YouTube language exports, one `视频号` export, and final cover output exist. By default the app expects both YouTube Chinese and English, but a single-language project can uncheck the unused YouTube language in `输出渠道`; then one YouTube export is enough. Shorts is optional: show it when present, but do not block distribution confirmation when absent. The next human task is `待确认分发`.
 2. `distribution_ready` + `needs_review`: the selected YouTube language exports and `视频号` export exist, but final cover output is missing. Shorts remains optional. The next human task is `待制作封面`.
-3. `editing`: one or more channel export videos exist, or editing has been manually started, but the required channel outputs are not complete yet. If the final cover is still missing, the app surfaces `待制作封面` so cover work can happen in parallel.
+3. `editing`: editing has been manually started, but the required channel outputs are not complete yet. The app keeps manually started work in `剪辑中` until channel export evidence appears.
 4. `ready_for_edit`: raw video, voiceover/script markdown or subtitle file, and cover source/material all exist. A final cover in `Covers` also satisfies the cover source/material check. The next human task is to approve post-production handoff.
 5. `assets_ready`: raw footage exists, but script/transcript material is missing. The next human task is to clarify the editing direction.
 6. `script_ready`: script/transcript material exists, but raw footage is missing. The next human task is to confirm whether footage is needed or still pending.
@@ -46,7 +46,7 @@ The app displays a production workflow on top of the deterministic file-stage ru
 3. `待补齐素材`: assigned recording items where voiceover/subtitle material, cover source/material, or raw video is still missing.
 4. `待进入后期`: all three required source items are present and need human quality review or post-production handoff.
 5. `剪辑中`: editing has started, but required channel export video files are not complete yet.
-6. `待制作封面`: editing has started or channel export video files exist, but final cover outputs are still missing from `Covers`/`封面`.
+6. `待制作封面`: channel export video files exist, but final cover outputs are still missing from `Covers`/`封面`.
 7. `待确认分发`: the selected YouTube language exports, 视频号 export, and final cover outputs exist, and distribution needs confirmation. Shorts is a supplementary output, not a blocker.
 
 The first two queues are advanced by local UI decisions only. They do not mutate Google Drive.
@@ -57,8 +57,8 @@ Automatic progress comes from Drive evidence:
 
 - `待录制` / `待补齐素材` moves forward when uploaded source files appear in Drive.
 - `待进入后期` appears when voiceover/subtitle material, cover material/final cover, and raw video are all present.
-- `剪辑中` appears when editing has been manually started or partial export files appear.
-- `待制作封面` appears when editing/export evidence exists but no final cover exists in `Covers`.
+- `剪辑中` appears when editing has been manually started.
+- `待制作封面` appears when channel export evidence exists but no final cover exists in `Covers`.
 - `待确认分发` appears after the selected YouTube language exports, 视频号 export, and final cover exist. Default projects require YouTube Chinese and English; single-language exceptions can uncheck the unused YouTube language in the app. Shorts should appear in the review list if it exists, but missing Shorts must not block this state.
 
 Manual progress comes from the local UI and is stored in `buda-video-status.json` when Drive write access is available:

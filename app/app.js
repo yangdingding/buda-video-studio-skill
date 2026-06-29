@@ -505,9 +505,7 @@ const workflowQueue = (item) => {
   if (isWorkflowDone(item)) return "done";
   if (hasRequiredChannelExports(item) && hasCoverAsset(item)) return "distribution_confirm";
   if (hasChannelExport(item) && !hasCoverAsset(item)) return "cover_generation";
-  if (item.stage === "editing" || decision.workflow_step === "editing") {
-    return hasCoverAsset(item) || decision.workflow_step === "cover_done" ? "editing" : "cover_generation";
-  }
+  if (item.stage === "editing" || decision.workflow_step === "editing") return "editing";
   if (item.stage === "idea") {
     if (decision.workflow_step === "assigned_recording" || hasManualProductionPlan(item)) return "recording";
     return decision.workflow_step === "topic_selected" ? "assignment" : "topic_board";
