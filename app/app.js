@@ -166,6 +166,11 @@ const selectedOrDefaultOutputChannels = (item) => {
   return selected.size > 0 ? selected : new Set(inferredDefaultOutputChannels(item));
 };
 
+const selectedOutputsForPublishing = (item, decision = currentDecision(item)) => {
+  const selected = normalizeSavedOutputs(item, decision);
+  return selected.size > 0 ? selected : selectedOrDefaultOutputChannels(item);
+};
+
 const channelRequirementLabel = (item) => {
   const labels = selectedChannelExportChecks(item).map((check) => check.label);
   return labels.length ? labels.join("、") : "任一导出视频";
@@ -408,6 +413,12 @@ const itemAssetCount = (item, type) => item.source_assets.filter((asset) => asse
 
 const requiredAssetKeys = ["raw_video", "cover_source", "voiceover"];
 
+const missingCheckPriority = {
+  raw_video: 0,
+  cover_source: 1,
+  voiceover: 2,
+};
+
 const assetReviewLabel = (check) => (check.key === "raw_video" ? "原始视频" : check.label);
 
 const assetReviewOverrides = (item) => {
@@ -434,9 +445,17 @@ const missingCheck = (item, key) => requiredChecks(item).some((check) => check.k
 
 const hasReadyCheck = (item, key) => requiredChecks(item).some((check) => check.key === key && check.ready);
 
-const missingRequiredKeys = (item) => requiredChecks(item).filter((check) => !check.ready).map((check) => check.key);
+const sortMissingChecks = (checks) =>
+  checks
+    .map((check, index) => ({ check, index }))
+    .sort((a, b) => (missingCheckPriority[a.check.key] ?? 99) - (missingCheckPriority[b.check.key] ?? 99) || a.index - b.index)
+    .map(({ check }) => check);
 
-const missingRequiredLabels = (item) => requiredChecks(item).filter((check) => !check.ready).map((check) => check.label);
+const missingRequiredChecks = (item) => sortMissingChecks(requiredChecks(item).filter((check) => !check.ready));
+
+const missingRequiredKeys = (item) => missingRequiredChecks(item).map((check) => check.key);
+
+const missingRequiredLabels = (item) => missingRequiredChecks(item).map((check) => check.label);
 
 const missingRequiredLabelText = (item) => missingRequiredLabels(item).join("、");
 
@@ -1070,7 +1089,7 @@ const archivedAssetsHtml = (item, assetsByType, options = {}) => {
 };
 
 const missingFocusHtml = (item) => {
-  const missing = requiredChecks(item).filter((check) => !check.ready);
+  const missing = missingRequiredChecks(item);
   if (missing.length === 0) return "";
   return `
     <section class="section compact">
@@ -1163,6 +1182,20 @@ const outputRowHtml = (output, selectedOutputs, locked) => `
     ${outputSpecsHtml(output)}
   </label>`;
 
+const publishOutputRowHtml = (output, selectedOutputs, publishedLinks, locked) => {
+  const checked = selectedOutputs.has(output.channel);
+  const value = publishedLinks[output.channel] || (output.channel.startsWith("YouTube ") ? publishedLinks.YouTube || "" : "");
+  return `
+    <label class="publish-output-row">
+      <span class="publish-output-check">
+        <input type="checkbox" data-output="${escapeHtml(output.channel)}" ${checked ? "checked" : ""} ${locked ? "disabled" : ""} />
+        <span>${escapeHtml(output.channel)}</span>
+      </span>
+      ${outputSpecsHtml(output)}
+      <input type="url" data-published-link="${escapeHtml(output.channel)}" value="${escapeHtml(value)}" placeholder="${checked ? "https://..." : "勾选后填写链接"}" ${locked || !checked ? "disabled" : ""} />
+    </label>`;
+};
+
 const outputsHtml = (item, selectedOutputs, locked) => {
   const queue = workflowQueue(item);
   if (!["material_review", "edit_output", "editing", "cover_generation", "distribution_confirm", "done"].includes(queue)) return "";
@@ -1217,37 +1250,19 @@ const publishedLinksHtml = (item, locked) => {
   const queue = workflowQueue(item);
   if (!["distribution_confirm", "done"].includes(queue)) return "";
   const decision = currentDecision(item);
-  const selectedOutputs = normalizeSavedOutputs(item, decision);
+  const selectedOutputs = selectedOutputsForPublishing(item, decision);
   const publishedLinks =
     decision.published_links && typeof decision.published_links === "object" && !Array.isArray(decision.published_links)
       ? decision.published_links
       : {};
-  const selected = item.outputs.filter((output) => selectedOutputs.has(output.channel));
-  if (selected.length === 0) {
-    return `
-    <section class="section form-section">
-      <div class="section-title">
-        <h4>发布链接</h4>
-        <p>先在输出渠道里勾选已经发布的平台，再填写公开链接。</p>
-      </div>
-    </section>`;
-  }
   return `
     <section class="section form-section">
       <div class="section-title">
-        <h4>发布链接</h4>
-        <p>${queue === "done" ? "视频已经发出去后，把每个平台的公开链接填在这里。" : "发布后把每个平台的公开链接填在这里；保存信息不会推进到已完成。"}</p>
+        <h4>发布渠道和链接</h4>
+        <p>${queue === "done" ? "勾选实际已经发布的平台；勾选后在同一行填写公开链接。" : "勾选需要交付或已发布的平台；发布后在同一行填写公开链接。"}</p>
       </div>
-      <div class="published-link-list">
-        ${selected
-          .map(
-            (output) => `
-          <label class="published-link-row">
-            <span>${escapeHtml(output.channel)}</span>
-            <input type="url" data-published-link="${escapeHtml(output.channel)}" value="${escapeHtml(publishedLinks[output.channel] || (output.channel.startsWith("YouTube ") ? publishedLinks.YouTube || "" : ""))}" placeholder="https://..." ${locked ? "disabled" : ""} />
-          </label>`
-          )
-          .join("")}
+      <div class="publish-output-list">
+        ${item.outputs.map((output) => publishOutputRowHtml(output, selectedOutputs, publishedLinks, locked)).join("")}
       </div>
 	    </section>`;
 };
@@ -1325,12 +1340,10 @@ const detailBodyHtml = (item, assetsByType, selectedOutputs, decision, locked) =
       ${archivedAssetsHtml(item, coverAssets)}`,
     distribution_confirm: `
       ${assetsHtml(item, distributionAssets)}
-      ${outputsHtml(item, selectedOutputs, locked)}
       ${publishedLinksHtml(item, locked)}`,
     done: `
       ${doneSummaryHtml(item, selectedOutputs)}
       ${publishedLinksHtml(item, locked)}
-      ${outputsHtml(item, selectedOutputs, locked)}
       ${archivedAssetsHtml(item, assetsByType)}`,
     blocked: `
       ${queueGuideHtml("阻塞原因", "这条视频暂时不能继续推进，需要先处理备注里的问题。", [
@@ -1420,11 +1433,11 @@ const dashboardItemButtonHtml = (item, options = {}) => {
       : selectedChannels.length
         ? selectedChannels.join(" / ")
         : missing.length
-          ? `缺 ${missing.join("、")}`
+          ? `❌ 缺 ${missing.join("、")}`
           : nextStepLabel(item));
 
   return `
-    <button class="dashboard-item" data-id="${escapeHtml(item.id)}" type="button">
+    <button class="dashboard-item ${activeId === item.id ? "active" : ""}" data-dashboard-id="${escapeHtml(item.id)}" type="button">
       <div>
         <span class="dashboard-item-kicker">${escapeHtml(item.ref)}</span>
         <strong>${escapeHtml(item.title)}</strong>
@@ -1447,7 +1460,7 @@ const dashboardPublishedHtml = (publishedItems) => {
       const entries = publishedChannelEntries(item);
       return `
         <div class="published-dashboard-row">
-          <button class="published-title" data-id="${escapeHtml(item.id)}" type="button">
+          <button class="published-title" data-dashboard-open="${escapeHtml(item.id)}" type="button">
             <span>${escapeHtml(item.ref)}</span>
             <strong>${escapeHtml(item.title)}</strong>
           </button>
@@ -1473,131 +1486,177 @@ const dashboardPublishedHtml = (publishedItems) => {
     .join("");
 };
 
+const isDueThisWeek = (item) => {
+  const due = currentDecision(item).due_date;
+  if (!due || workflowQueue(item) === "done") return false;
+  const time = new Date(due).getTime();
+  if (!Number.isFinite(time)) return false;
+  const end = new Date();
+  end.setDate(end.getDate() + 7);
+  end.setHours(23, 59, 59, 999);
+  return time <= end.getTime();
+};
+
+const dashboardStatusCardHtml = (item, options = {}) => {
+  const queue = workflowQueue(item);
+  const decision = currentDecision(item);
+  const missing = missingRequiredLabelText(item);
+  const channels = publishedChannelEntries(item).map((entry) => entry.channel).join(" / ");
+  const detail =
+    options.detail ||
+    (queue === "done"
+      ? channels || "已完成"
+      : queue === "waiting_upload"
+        ? `❌ 缺 ${missing || "素材"}`
+        : queue === "recording" || queue === "assignment"
+          ? `${productionOwner(item)} · ${productionDueDate(item)}`
+          : nextStepLabel(item));
+  const meta = options.meta || workflowLabel(item);
+
+  return `
+    <button class="dashboard-status-card" data-dashboard-open="${escapeHtml(item.id)}" type="button">
+      <div class="dashboard-status-top">
+        <span>${escapeHtml(item.ref)}</span>
+        <span>${escapeHtml(meta)}</span>
+      </div>
+      <strong>${escapeHtml(item.title)}</strong>
+      <p>${escapeHtml(rowSummaryLabel(item) || detail)}</p>
+      <div class="dashboard-status-foot">
+        <span>${escapeHtml(detail)}</span>
+        ${decision.due_date ? `<span>${escapeHtml(compactDateLabel(decision.due_date))}</span>` : ""}
+      </div>
+    </button>`;
+};
+
+const dashboardSectionHtml = ({ title, count, sectionItems, empty, meta, detail }) => `
+  <section class="dashboard-section">
+    <div class="dashboard-section-title">
+      <h4>${escapeHtml(title)}</h4>
+      <span>${count}</span>
+    </div>
+    <div class="dashboard-card-grid">
+      ${
+        sectionItems.length
+          ? sectionItems.map((item) => dashboardStatusCardHtml(item, { meta: meta?.(item), detail: detail?.(item) })).join("")
+          : `<div class="dashboard-empty">${escapeHtml(empty)}</div>`
+      }
+      ${count > sectionItems.length ? `<div class="dashboard-more-note">还有 ${count - sectionItems.length} 条，可从左侧队列进入查看。</div>` : ""}
+    </div>
+  </section>`;
+
 const renderDashboard = () => {
-  const publishedItems = dashboardItems((item) => workflowQueue(item) === "done" || Object.keys(publishedLinksFor(item)).length > 0);
-  const activeItems = dashboardItems((item) => ["distribution_confirm", "cover_generation", "editing", "material_review", "edit_output"].includes(workflowQueue(item)));
-  const missingItems = dashboardItems((item) => workflowQueue(item) === "waiting_upload");
-  const recordingItems = dashboardItems((item) => ["assignment", "recording"].includes(workflowQueue(item)));
   const topicItems = dashboardItems((item) => workflowQueue(item) === "topic_board");
-  const doneWithLinks = publishedItems.filter((item) => publishedChannelEntries(item).some((entry) => entry.url));
-  const publishedChannels = doneWithLinks.reduce((total, item) => total + publishedChannelEntries(item).filter((entry) => entry.url).length, 0);
-  const dueSoon = dashboardItems((item) => {
-    const due = currentDecision(item).due_date;
-    if (!due || workflowQueue(item) === "done") return false;
-    const time = new Date(due).getTime();
-    if (!Number.isFinite(time)) return false;
-    return time <= Date.now() + 7 * 24 * 60 * 60 * 1000;
-  });
+  const assignmentItems = dashboardItems((item) => workflowQueue(item) === "assignment");
+  const recordingItems = dashboardItems((item) => workflowQueue(item) === "recording");
+  const missingItems = dashboardItems((item) => workflowQueue(item) === "waiting_upload");
+  const materialReviewItems = dashboardItems((item) => ["material_review", "edit_output"].includes(workflowQueue(item)));
+  const editingItems = dashboardItems((item) => workflowQueue(item) === "editing");
+  const coverItems = dashboardItems((item) => workflowQueue(item) === "cover_generation");
+  const distributionItems = dashboardItems((item) => workflowQueue(item) === "distribution_confirm");
+  const doneItems = dashboardItems((item) => workflowQueue(item) === "done");
+  const blockedItems = dashboardItems((item) => workflowQueue(item) === "blocked");
+  const publishedItems = dashboardItems((item) => workflowQueue(item) === "done" || Object.keys(publishedLinksFor(item)).length > 0);
+  const thisWeekPublishItems = dashboardItems((item) => isDueThisWeek(item) && ["distribution_confirm", "cover_generation", "editing"].includes(workflowQueue(item)));
+  const thisWeekOutputItems = dashboardItems((item) => isDueThisWeek(item) && ["material_review", "edit_output"].includes(workflowQueue(item)));
+  const publishedLinkCount = publishedItems.reduce(
+    (total, item) => total + publishedChannelEntries(item).filter((entry) => entry.url).length,
+    0
+  );
 
   $("#videoList").innerHTML = `
     <div class="dashboard-board">
-      <section class="dashboard-hero">
-        <div>
-          <span class="dashboard-kicker">Production Dashboard</span>
-          <h3>视频生产总览</h3>
-          <p>看已经发布到哪些渠道、哪些卡在素材、哪些正在后期和等待分发确认。</p>
-        </div>
-        <div class="dashboard-hero-stats">
-          <div>
-            <strong>${publishedItems.length}</strong>
-            <span>已完成/有链接</span>
-          </div>
-          <div>
-            <strong>${publishedChannels}</strong>
-            <span>发布渠道链接</span>
-          </div>
-          <div>
-            <strong>${missingItems.length}</strong>
-            <span>素材不齐</span>
-          </div>
-          <div>
-            <strong>${activeItems.length}</strong>
-            <span>后期处理中</span>
-          </div>
-        </div>
+      <section class="dashboard-kpi-strip">
+        <div><strong>${publishedItems.length}</strong><span>已发布/已完成</span></div>
+        <div><strong>${publishedLinkCount}</strong><span>已填发布链接</span></div>
+        <div><strong>${thisWeekPublishItems.length}</strong><span>本周要发</span></div>
+        <div><strong>${thisWeekOutputItems.length}</strong><span>本周预计输出</span></div>
+        <div><strong>${missingItems.length}</strong><span>素材不齐</span></div>
       </section>
 
-      <section class="dashboard-section dashboard-published">
-        <div class="dashboard-section-title">
-          <h4>已发布</h4>
-          <span>${publishedItems.length}</span>
-        </div>
-        ${dashboardPublishedHtml(publishedItems)}
-      </section>
+      <div class="dashboard-section-flow">
+        ${dashboardSectionHtml({
+          title: "选题表",
+          count: topicItems.length,
+          sectionItems: topicItems.slice(0, 6),
+          empty: "选题表里暂时没有待判断的视频方向。",
+          meta: (item) => topicPriorityLabel(item),
+          detail: (item) => topicHintLabel(item),
+        })}
+        ${dashboardSectionHtml({
+          title: "待分配录制",
+          count: assignmentItems.length,
+          sectionItems: assignmentItems.slice(0, 6),
+          empty: "没有等待分配录制人的选题。",
+          meta: () => "待分配",
+          detail: (item) => nextStepLabel(item),
+        })}
+        ${dashboardSectionHtml({
+          title: "待录制",
+          count: recordingItems.length,
+          sectionItems: recordingItems.slice(0, 6),
+          empty: "没有等待录制的视频。",
+          meta: (item) => recordingStatusLabel(item),
+          detail: (item) => `${productionOwner(item)} · ${productionDueDate(item)}`,
+        })}
+        ${dashboardSectionHtml({
+          title: "待补齐素材",
+          count: missingItems.length,
+          sectionItems: missingItems.slice(0, 6),
+          empty: "没有待补齐素材的视频。",
+          meta: (item) => productionOwner(item),
+          detail: (item) => `❌ 缺 ${missingRequiredLabelText(item) || "素材"}`,
+        })}
+        ${dashboardSectionHtml({
+          title: "待进入后期",
+          count: materialReviewItems.length,
+          sectionItems: materialReviewItems.slice(0, 6),
+          empty: "没有等待进入后期的视频。",
+          meta: (item) => workflowLabel(item),
+          detail: (item) => nextStepLabel(item),
+        })}
+        ${dashboardSectionHtml({
+          title: "正在剪辑",
+          count: editingItems.length,
+          sectionItems: editingItems.slice(0, 6),
+          empty: "当前没有剪辑中的视频。",
+          meta: () => "剪辑中",
+          detail: (item) => nextStepLabel(item),
+        })}
+        ${dashboardSectionHtml({
+          title: "待制作封面",
+          count: coverItems.length,
+          sectionItems: coverItems.slice(0, 6),
+          empty: "没有等待制作封面的视频。",
+          meta: () => "待制作封面",
+          detail: (item) => nextStepLabel(item),
+        })}
+        ${dashboardSectionHtml({
+          title: "待确认分发",
+          count: distributionItems.length,
+          sectionItems: distributionItems.slice(0, 6),
+          empty: "没有等待确认分发的视频。",
+          meta: () => "待确认分发",
+          detail: (item) => decisionDisplayLabel(item, currentDecision(item)),
+        })}
 
-      <div class="dashboard-grid">
-        <section class="dashboard-section">
-          <div class="dashboard-section-title">
-            <h4>后期和分发</h4>
-            <span>${activeItems.length}</span>
-          </div>
-          ${
-            activeItems
-              .slice(0, 8)
-              .map((item) => dashboardItemButtonHtml(item, { meta: workflowLabel(item), detail: nextStepLabel(item) }))
-              .join("") || `<div class="dashboard-empty">当前没有后期处理中的视频。</div>`
-          }
+        <section class="dashboard-section dashboard-published-wide">
+          <div class="dashboard-section-title"><h4>已完成：发在哪里</h4><span>${doneItems.length}</span></div>
+          ${dashboardPublishedHtml(doneItems)}
         </section>
-
-        <section class="dashboard-section">
-          <div class="dashboard-section-title">
-            <h4>素材不齐</h4>
-            <span>${missingItems.length}</span>
-          </div>
-          ${
-            missingItems
-              .slice(0, 8)
-              .map((item) => dashboardItemButtonHtml(item, { meta: productionOwner(item), detail: `缺 ${missingRequiredLabelText(item) || "素材"}` }))
-              .join("") || `<div class="dashboard-empty">没有待补齐素材的视频。</div>`
-          }
-        </section>
-
-        <section class="dashboard-section">
-          <div class="dashboard-section-title">
-            <h4>待录制/待分配</h4>
-            <span>${recordingItems.length}</span>
-          </div>
-          ${
-            recordingItems
-              .slice(0, 8)
-              .map((item) => dashboardItemButtonHtml(item, { meta: workflowLabel(item), detail: `${productionOwner(item)} · ${productionDueDate(item)}` }))
-              .join("") || `<div class="dashboard-empty">当前没有录制排期。</div>`
-          }
-        </section>
-
-        <section class="dashboard-section">
-          <div class="dashboard-section-title">
-            <h4>近 7 天交付</h4>
-            <span>${dueSoon.length}</span>
-          </div>
-          ${
-            dueSoon
-              .slice(0, 8)
-              .map((item) => dashboardItemButtonHtml(item, { meta: compactDateLabel(currentDecision(item).due_date), detail: workflowLabel(item) }))
-              .join("") || `<div class="dashboard-empty">没有临近交付的视频。</div>`
-          }
-        </section>
+        ${dashboardSectionHtml({
+          title: "阻塞",
+          count: blockedItems.length,
+          sectionItems: blockedItems.slice(0, 6),
+          empty: "没有阻塞的视频。",
+          meta: () => "阻塞",
+          detail: (item) => currentDecision(item).comment || nextStepLabel(item),
+        })}
       </div>
-
-      <section class="dashboard-section">
-        <div class="dashboard-section-title">
-          <h4>选题池</h4>
-          <span>${topicItems.length}</span>
-        </div>
-        <div class="dashboard-topic-strip">
-          ${
-            topicItems
-              .slice(0, 10)
-              .map((item) => dashboardItemButtonHtml(item, { meta: topicPriorityLabel(item), detail: topicHintLabel(item) }))
-              .join("") || `<div class="dashboard-empty">选题池为空。</div>`
-          }
-        </div>
-      </section>
     </div>`;
 
-  document.querySelectorAll("[data-id]").forEach((button) => {
+  document.querySelectorAll("[data-dashboard-open]").forEach((button) => {
     button.addEventListener("click", () => {
-      navigateTo({ id: button.dataset.id, detailOpen: true });
+      navigateTo({ id: button.dataset.dashboardOpen, detailOpen: true });
     });
   });
 };
@@ -1752,6 +1811,12 @@ const renderSettings = () => {
 };
 
 const renderMetrics = () => {
+  if (activeFilter === "dashboard") {
+    $("#metrics").innerHTML = "";
+    $("#metrics").hidden = true;
+    return;
+  }
+  $("#metrics").hidden = false;
   const all = items();
   const value = (predicate) => all.filter(predicate).length;
   const cards = [
@@ -1868,7 +1933,7 @@ const renderList = () => {
           </div>
         </button>`;
         }
-        const missingRequired = requiredChecks(item).filter((check) => !check.ready);
+        const missingRequired = missingRequiredChecks(item);
         const checkByKey = Object.fromEntries(requiredChecks(item).map((check) => [check.key, check]));
         const owner = productionOwner(item);
         const dueDate = productionDueDate(item);
@@ -1986,14 +2051,14 @@ const renderDetail = () => {
 
   const locked = Boolean(state?.lock);
   const decision = currentDecision(item);
-  const selectedOutputs = normalizeSavedOutputs(item, decision);
+  const selectedOutputs = selectedOutputsForPublishing(item, decision);
   const assetsByType = item.source_assets.reduce((groups, asset) => {
     const key = asset.type;
     groups[key] = groups[key] || [];
     groups[key].push(asset);
     return groups;
   }, {});
-	  const missingRequired = requiredChecks(item).filter((check) => !check.ready);
+	  const missingRequired = missingRequiredChecks(item);
 	  const queue = workflowQueue(item);
 	  const allowManualEditing = queue === "waiting_upload" && canStartEditingWithoutCover(item);
 	  const approveDisabled =
@@ -2006,7 +2071,7 @@ const renderDetail = () => {
     <div class="drawer-top">
       <div>
         <span class="drawer-kicker">视频详情</span>
-        <strong>${escapeHtml(item.ref)}</strong>
+        <strong>${escapeHtml(`${item.ref} · ${item.title}`)}</strong>
       </div>
       <button class="drawer-close" id="closeDetail" aria-label="关闭详情" title="关闭详情">×</button>
     </div>
@@ -2110,6 +2175,16 @@ const renderDetail = () => {
         button.dataset.state = "";
         setActionFeedback("");
       }
+    });
+  });
+  document.querySelectorAll(".publish-output-row [data-output]").forEach((input) => {
+    input.addEventListener("change", () => {
+      const row = input.closest(".publish-output-row");
+      const linkInput = row?.querySelector("[data-published-link]");
+      if (!linkInput || locked) return;
+      linkInput.disabled = !input.checked;
+      linkInput.placeholder = input.checked ? "https://..." : "勾选后填写链接";
+      if (input.checked) linkInput.focus();
     });
   });
   document.querySelectorAll("[data-preview-file]").forEach((button) => {
