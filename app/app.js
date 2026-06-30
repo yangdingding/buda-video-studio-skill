@@ -1564,6 +1564,41 @@ const dashboardSectionHtml = ({ title, count, sectionItems, empty, meta, detail 
     </div>
   </section>`;
 
+const dashboardMasonryColumnCount = (width) => {
+  if (width >= 1680) return 4;
+  if (width <= 760) return 1;
+  if (width <= 1280) return 2;
+  return 3;
+};
+
+const layoutDashboardMasonry = () => {
+  const flow = document.querySelector(".dashboard-section-flow");
+  if (!flow) return;
+  const sections = Array.from(flow.querySelectorAll(".dashboard-section"));
+  if (!sections.length) {
+    flow.style.height = "0px";
+    return;
+  }
+  const gap = 22;
+  const columnCount = dashboardMasonryColumnCount(flow.clientWidth);
+  const columnWidth = (flow.clientWidth - gap * (columnCount - 1)) / columnCount;
+  const columnHeights = Array.from({ length: columnCount }, () => 0);
+  sections.forEach((section) => {
+    section.style.width = `${columnWidth}px`;
+    section.style.transform = "translate(0, 0)";
+  });
+  sections.forEach((section) => {
+    const columnIndex = columnHeights.indexOf(Math.min(...columnHeights));
+    section.style.transform = `translate(${Math.round((columnWidth + gap) * columnIndex)}px, ${Math.round(columnHeights[columnIndex])}px)`;
+    columnHeights[columnIndex] += section.offsetHeight + gap;
+  });
+  flow.style.height = `${Math.max(...columnHeights) - gap}px`;
+};
+
+const scheduleDashboardMasonry = () => {
+  requestAnimationFrame(layoutDashboardMasonry);
+};
+
 const renderDashboard = () => {
   const topicItems = dashboardItems((item) => workflowQueue(item) === "topic_board");
   const assignmentItems = dashboardItems((item) => workflowQueue(item) === "assignment");
@@ -1686,6 +1721,7 @@ const renderDashboard = () => {
       navigateTo({ id: button.dataset.dashboardOpen, detailOpen: true });
     });
   });
+  scheduleDashboardMasonry();
 };
 
 const humanWorkflowQueues = ["topic_board", "assignment", "recording", "waiting_upload", "material_review", "editing", "cover_generation", "distribution_confirm"];
@@ -2585,6 +2621,11 @@ applyRouteFromHash();
 window.addEventListener("hashchange", () => {
   applyRouteFromHash();
   render();
+});
+window.addEventListener("resize", () => {
+  if (activeFilter === "dashboard") {
+    scheduleDashboardMasonry();
+  }
 });
 await loadState();
 setInterval(() => loadState(), 4000);
