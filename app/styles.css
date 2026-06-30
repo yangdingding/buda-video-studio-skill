@@ -641,7 +641,6 @@ label {
   border-radius: 16px;
   background: var(--panel);
   box-shadow: 0 12px 30px rgba(53, 43, 24, 0.035);
-  transition: transform 180ms ease;
 }
 
 .dashboard-section::before {

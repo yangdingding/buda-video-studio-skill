@@ -21,6 +21,7 @@ let search = "";
 let editing = false;
 let syncing = false;
 let isApplyingRoute = false;
+let stateSnapshot = "";
 const openArchivedAssetIds = new Set();
 
 const $ = (selector) => document.querySelector(selector);
@@ -2530,7 +2531,11 @@ const render = () => {
 const loadState = async ({ force = false } = {}) => {
   if (editing && !force) return;
   const response = await fetch("/api/state", { cache: "no-store" });
-  state = await response.json();
+  const nextState = await response.json();
+  const nextSnapshot = JSON.stringify(nextState);
+  if (!force && stateSnapshot === nextSnapshot) return;
+  state = nextState;
+  stateSnapshot = nextSnapshot;
   render();
 };
 
