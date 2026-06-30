@@ -1528,10 +1528,30 @@ const dashboardStatusCardHtml = (item, options = {}) => {
     </button>`;
 };
 
+const dashboardSectionEmoji = {
+  选题表: "📝",
+  待分配录制: "👤",
+  待录制: "🎥",
+  待补齐素材: "🧩",
+  待进入后期: "🚪",
+  正在剪辑: "✂️",
+  待制作封面: "🖼️",
+  待确认分发: "✅",
+  本期计划要发: "🗓️",
+  "已完成：发在哪里": "📍",
+  阻塞: "⛔",
+};
+
+const dashboardSectionTitleHtml = (title) => `
+  <h4>
+    <span class="dashboard-section-emoji" aria-hidden="true">${escapeHtml(dashboardSectionEmoji[title] || "•")}</span>
+    <span>${escapeHtml(title)}</span>
+  </h4>`;
+
 const dashboardSectionHtml = ({ title, count, sectionItems, empty, meta, detail }) => `
   <section class="dashboard-section">
     <div class="dashboard-section-title">
-      <h4>${escapeHtml(title)}</h4>
+      ${dashboardSectionTitleHtml(title)}
       <span>${count}</span>
     </div>
     <div class="dashboard-card-grid">
@@ -1556,7 +1576,7 @@ const renderDashboard = () => {
   const doneItems = dashboardItems((item) => workflowQueue(item) === "done");
   const blockedItems = dashboardItems((item) => workflowQueue(item) === "blocked");
   const publishedItems = dashboardItems((item) => workflowQueue(item) === "done" || Object.keys(publishedLinksFor(item)).length > 0);
-  const thisWeekPublishItems = dashboardItems((item) => isDueThisWeek(item) && ["distribution_confirm", "cover_generation", "editing"].includes(workflowQueue(item)));
+  const plannedPublishItems = dashboardItems((item) => ["distribution_confirm", "cover_generation", "editing"].includes(workflowQueue(item)));
   const thisWeekOutputItems = dashboardItems((item) => isDueThisWeek(item) && ["material_review", "edit_output"].includes(workflowQueue(item)));
   const publishedLinkCount = publishedItems.reduce(
     (total, item) => total + publishedChannelEntries(item).filter((entry) => entry.url).length,
@@ -1568,36 +1588,40 @@ const renderDashboard = () => {
       <section class="dashboard-kpi-strip">
         <div><strong>${publishedItems.length}</strong><span>已发布/已完成</span></div>
         <div><strong>${publishedLinkCount}</strong><span>已填发布链接</span></div>
-        <div><strong>${thisWeekPublishItems.length}</strong><span>本周要发</span></div>
+        <div><strong>${plannedPublishItems.length}</strong><span>本期计划要发</span></div>
         <div><strong>${thisWeekOutputItems.length}</strong><span>本周预计输出</span></div>
         <div><strong>${missingItems.length}</strong><span>素材不齐</span></div>
       </section>
 
       <div class="dashboard-section-flow">
         ${dashboardSectionHtml({
-          title: "选题表",
-          count: topicItems.length,
-          sectionItems: topicItems.slice(0, 6),
-          empty: "选题表里暂时没有待判断的视频方向。",
-          meta: (item) => topicPriorityLabel(item),
-          detail: (item) => topicHintLabel(item),
+          title: "待确认分发",
+          count: distributionItems.length,
+          sectionItems: distributionItems.slice(0, 6),
+          empty: "没有等待确认分发的视频。",
+          meta: () => "待确认分发",
+          detail: (item) => decisionDisplayLabel(item, currentDecision(item)),
         })}
         ${dashboardSectionHtml({
-          title: "待分配录制",
-          count: assignmentItems.length,
-          sectionItems: assignmentItems.slice(0, 6),
-          empty: "没有等待分配录制人的选题。",
-          meta: () => "待分配",
+          title: "本期计划要发",
+          count: plannedPublishItems.length,
+          sectionItems: plannedPublishItems.slice(0, 6),
+          empty: "本期暂时没有计划发布的视频。",
+          meta: (item) => workflowLabel(item),
           detail: (item) => nextStepLabel(item),
         })}
         ${dashboardSectionHtml({
-          title: "待录制",
-          count: recordingItems.length,
-          sectionItems: recordingItems.slice(0, 6),
-          empty: "没有等待录制的视频。",
-          meta: (item) => recordingStatusLabel(item),
-          detail: (item) => `${productionOwner(item)} · ${productionDueDate(item)}`,
+          title: "正在剪辑",
+          count: editingItems.length,
+          sectionItems: editingItems.slice(0, 6),
+          empty: "当前没有剪辑中的视频。",
+          meta: () => "剪辑中",
+          detail: (item) => nextStepLabel(item),
         })}
+        <section class="dashboard-section dashboard-published-wide">
+          <div class="dashboard-section-title">${dashboardSectionTitleHtml("已完成：发在哪里")}<span>${doneItems.length}</span></div>
+          ${dashboardPublishedHtml(doneItems)}
+        </section>
         ${dashboardSectionHtml({
           title: "待补齐素材",
           count: missingItems.length,
@@ -1615,14 +1639,6 @@ const renderDashboard = () => {
           detail: (item) => nextStepLabel(item),
         })}
         ${dashboardSectionHtml({
-          title: "正在剪辑",
-          count: editingItems.length,
-          sectionItems: editingItems.slice(0, 6),
-          empty: "当前没有剪辑中的视频。",
-          meta: () => "剪辑中",
-          detail: (item) => nextStepLabel(item),
-        })}
-        ${dashboardSectionHtml({
           title: "待制作封面",
           count: coverItems.length,
           sectionItems: coverItems.slice(0, 6),
@@ -1631,18 +1647,29 @@ const renderDashboard = () => {
           detail: (item) => nextStepLabel(item),
         })}
         ${dashboardSectionHtml({
-          title: "待确认分发",
-          count: distributionItems.length,
-          sectionItems: distributionItems.slice(0, 6),
-          empty: "没有等待确认分发的视频。",
-          meta: () => "待确认分发",
-          detail: (item) => decisionDisplayLabel(item, currentDecision(item)),
+          title: "待录制",
+          count: recordingItems.length,
+          sectionItems: recordingItems.slice(0, 6),
+          empty: "没有等待录制的视频。",
+          meta: (item) => recordingStatusLabel(item),
+          detail: (item) => `${productionOwner(item)} · ${productionDueDate(item)}`,
         })}
-
-        <section class="dashboard-section dashboard-published-wide">
-          <div class="dashboard-section-title"><h4>已完成：发在哪里</h4><span>${doneItems.length}</span></div>
-          ${dashboardPublishedHtml(doneItems)}
-        </section>
+        ${dashboardSectionHtml({
+          title: "待分配录制",
+          count: assignmentItems.length,
+          sectionItems: assignmentItems.slice(0, 6),
+          empty: "没有等待分配录制人的选题。",
+          meta: () => "待分配",
+          detail: (item) => nextStepLabel(item),
+        })}
+        ${dashboardSectionHtml({
+          title: "选题表",
+          count: topicItems.length,
+          sectionItems: topicItems.slice(0, 6),
+          empty: "选题表里暂时没有待判断的视频方向。",
+          meta: (item) => topicPriorityLabel(item),
+          detail: (item) => topicHintLabel(item),
+        })}
         ${dashboardSectionHtml({
           title: "阻塞",
           count: blockedItems.length,

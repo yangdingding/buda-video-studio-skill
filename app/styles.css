@@ -666,10 +666,26 @@ label {
 }
 
 .dashboard-section-title h4 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
   color: var(--ink);
   font-size: 15px;
   font-weight: 680;
   line-height: 1.2;
+}
+
+.dashboard-section-emoji {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 8px;
+  background: color-mix(in oklch, var(--panel-soft) 62%, var(--panel));
+  font-size: 14px;
+  line-height: 1;
 }
 
 .dashboard-section-title small {
