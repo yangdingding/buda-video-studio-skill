@@ -775,6 +775,9 @@ const drivePreviewUrl = (fileId) => `https://drive.google.com/file/d/${encodeURI
 
 const assetOpenUrl = (asset) => asset.folder_url || asset.absolute_path || "";
 
+const assetDownloadUrl = (asset) =>
+  asset.drive_file_id ? `/api/download/${encodeURIComponent(asset.drive_file_id)}` : "";
+
 const driveThumbnailUrl = (fileId) =>
   fileId ? `/api/thumbnail/${encodeURIComponent(fileId)}` : "";
 
@@ -1042,7 +1045,12 @@ const assetGroupsHtml = (assetsByType, options = {}) => `
                                 ? `<button type="button" class="asset-action" data-preview-file="${escapeHtml(asset.drive_file_id)}" data-preview-title="${escapeHtml(asset.name)}">预览</button>`
                                 : ""
                             }
-                            <a class="asset-action" href="${escapeHtml(assetOpenUrl(asset))}" target="_blank" rel="noreferrer" title="${escapeHtml(asset.folder_url ? "打开所在 Google Drive 文件夹" : "打开 Google Drive 文件")}">打开</a>
+                            <a class="asset-action" href="${escapeHtml(assetOpenUrl(asset))}" target="_blank" rel="noreferrer" title="${escapeHtml(asset.folder_url ? "打开所在 Google Drive 文件夹" : "打开 Google Drive 文件")}">云端打开</a>
+                            ${
+                              assetDownloadUrl(asset)
+                                ? `<a class="asset-action" href="${escapeHtml(assetDownloadUrl(asset))}" download title="下载 ${escapeHtml(asset.name)}">下载</a>`
+                                : ""
+                            }
                             ${assetMoreDetailsHtml(asset)}
                           </div>
                         </div>

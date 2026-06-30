@@ -6,6 +6,7 @@ import { readBody, sendJson } from "./json.mjs";
 import { saveDecision } from "./decisions.mjs";
 import { getState } from "./state.mjs";
 import { generateBatch } from "../../scripts/generate_batch.mjs";
+import { serveDownload } from "./downloads.mjs";
 import { serveThumbnail } from "./thumbnails.mjs";
 
 const staticFiles = {
@@ -51,6 +52,12 @@ export const handleRequest = async (request, response) => {
     if (request.method === "GET" && url.pathname.startsWith("/api/thumbnail/")) {
       const fileId = decodeURIComponent(url.pathname.replace("/api/thumbnail/", ""));
       await serveThumbnail({ fileId, response });
+      return;
+    }
+
+    if (request.method === "GET" && url.pathname.startsWith("/api/download/")) {
+      const fileId = decodeURIComponent(url.pathname.replace("/api/download/", ""));
+      await serveDownload({ fileId, response });
       return;
     }
 
