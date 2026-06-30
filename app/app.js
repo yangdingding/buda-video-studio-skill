@@ -1,4 +1,5 @@
 const filters = [
+  ["dashboard", "总览"],
   ["all", "全部"],
   ["topic_board", "选题表"],
   ["assignment", "待分配录制"],
@@ -13,7 +14,7 @@ const filters = [
 ];
 
 let state = null;
-let activeFilter = "all";
+let activeFilter = "dashboard";
 let activeId = null;
 let detailOpen = false;
 let search = "";
@@ -45,7 +46,7 @@ const parseHashRoute = () => {
   const raw = (window.location.hash || "").replace(/^#\/?/, "");
   const parts = raw.split("/").filter(Boolean).map(decodeRoutePart);
   return {
-    filter: routeFilters().includes(parts[0]) ? parts[0] : "all",
+    filter: routeFilters().includes(parts[0]) ? parts[0] : "dashboard",
     id: parts[1] || null,
   };
 };
@@ -229,6 +230,29 @@ const distributionApprovalCount = (decision = {}) => {
 };
 
 const hasDistributionApprovals = (decision = {}) => distributionApprovalCount(decision) === distributionApprovers.length;
+
+const publishedLinksFor = (item) => {
+  const decision = currentDecision(item);
+  if (!decision.published_links || typeof decision.published_links !== "object" || Array.isArray(decision.published_links)) return {};
+  return decision.published_links;
+};
+
+const selectedOutputsFor = (item) => {
+  const selected = selectedOrDefaultOutputChannels(item);
+  return item.outputs.filter((output) => selected.has(output.channel));
+};
+
+const publishedChannelEntries = (item) => {
+  const links = publishedLinksFor(item);
+  const selectedOutputs = selectedOutputsFor(item);
+  return selectedOutputs.map((output) => {
+    const link = links[output.channel] || (output.channel.startsWith("YouTube ") ? links.YouTube : "") || "";
+    return {
+      channel: output.channel,
+      url: link,
+    };
+  });
+};
 
 const decisionDisplayLabel = (item, decision) => {
   const approvalCount = distributionApprovalCount(decision);
@@ -644,6 +668,7 @@ const statusDisplayLabel = (item) => {
 };
 
 const filterMatch = (item, filter) => {
+  if (filter === "dashboard") return true;
   if (filter === "all") return true;
   if (filter === "material_review") return ["material_review", "edit_output"].includes(workflowQueue(item));
   return workflowQueue(item) === filter;
@@ -1363,6 +1388,220 @@ const filteredItems = () =>
     return matchesSearch && matchesFilter;
   });
 
+const dashboardItems = (predicate) =>
+  items().filter((item) => {
+    const text = `${item.title} ${item.summary} ${workflowLabel(item)} ${publishedChannelEntries(item)
+      .map((entry) => entry.channel)
+      .join(" ")}`.toLowerCase();
+    return (!search || text.includes(search.toLowerCase())) && predicate(item);
+  });
+
+const compactDateLabel = (value) => {
+  if (!value) return "未定";
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return value;
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+};
+
+const dashboardItemButtonHtml = (item, options = {}) => {
+  const decision = currentDecision(item);
+  const queue = workflowQueue(item);
+  const links = publishedChannelEntries(item).filter((entry) => entry.url);
+  const selectedChannels = publishedChannelEntries(item).map((entry) => entry.channel);
+  const missing = missingRequiredLabels(item);
+  const meta = options.meta || (queue === "done" ? "已发布" : workflowLabel(item));
+  const detail =
+    options.detail ||
+    (links.length
+      ? links.map((entry) => entry.channel).join(" / ")
+      : selectedChannels.length
+        ? selectedChannels.join(" / ")
+        : missing.length
+          ? `缺 ${missing.join("、")}`
+          : nextStepLabel(item));
+
+  return `
+    <button class="dashboard-item" data-id="${escapeHtml(item.id)}" type="button">
+      <div>
+        <span class="dashboard-item-kicker">${escapeHtml(item.ref)}</span>
+        <strong>${escapeHtml(item.title)}</strong>
+        <small>${escapeHtml(detail)}</small>
+      </div>
+      <div class="dashboard-item-meta">
+        <span>${escapeHtml(meta)}</span>
+        ${decision.due_date ? `<small>${escapeHtml(compactDateLabel(decision.due_date))}</small>` : ""}
+      </div>
+    </button>`;
+};
+
+const dashboardPublishedHtml = (publishedItems) => {
+  if (!publishedItems.length) {
+    return `<div class="dashboard-empty">还没有记录发布链接的视频。</div>`;
+  }
+
+  return publishedItems
+    .map((item) => {
+      const entries = publishedChannelEntries(item);
+      return `
+        <div class="published-dashboard-row">
+          <button class="published-title" data-id="${escapeHtml(item.id)}" type="button">
+            <span>${escapeHtml(item.ref)}</span>
+            <strong>${escapeHtml(item.title)}</strong>
+          </button>
+          <div class="published-channel-list">
+            ${
+              entries.length
+                ? entries
+                    .map(
+                      (entry) =>
+                        entry.url
+                          ? `
+                        <a href="${escapeHtml(entry.url)}" target="_blank" rel="noreferrer">
+                          ${escapeHtml(entry.channel)}
+                        </a>`
+                          : `<span class="published-channel-missing">${escapeHtml(entry.channel)} · 未填链接</span>`
+                    )
+                    .join("")
+                : `<span class="dashboard-muted">已完成，未填公开链接</span>`
+            }
+          </div>
+        </div>`;
+    })
+    .join("");
+};
+
+const renderDashboard = () => {
+  const publishedItems = dashboardItems((item) => workflowQueue(item) === "done" || Object.keys(publishedLinksFor(item)).length > 0);
+  const activeItems = dashboardItems((item) => ["distribution_confirm", "cover_generation", "editing", "material_review", "edit_output"].includes(workflowQueue(item)));
+  const missingItems = dashboardItems((item) => workflowQueue(item) === "waiting_upload");
+  const recordingItems = dashboardItems((item) => ["assignment", "recording"].includes(workflowQueue(item)));
+  const topicItems = dashboardItems((item) => workflowQueue(item) === "topic_board");
+  const doneWithLinks = publishedItems.filter((item) => publishedChannelEntries(item).some((entry) => entry.url));
+  const publishedChannels = doneWithLinks.reduce((total, item) => total + publishedChannelEntries(item).filter((entry) => entry.url).length, 0);
+  const dueSoon = dashboardItems((item) => {
+    const due = currentDecision(item).due_date;
+    if (!due || workflowQueue(item) === "done") return false;
+    const time = new Date(due).getTime();
+    if (!Number.isFinite(time)) return false;
+    return time <= Date.now() + 7 * 24 * 60 * 60 * 1000;
+  });
+
+  $("#videoList").innerHTML = `
+    <div class="dashboard-board">
+      <section class="dashboard-hero">
+        <div>
+          <span class="dashboard-kicker">Production Dashboard</span>
+          <h3>视频生产总览</h3>
+          <p>看已经发布到哪些渠道、哪些卡在素材、哪些正在后期和等待分发确认。</p>
+        </div>
+        <div class="dashboard-hero-stats">
+          <div>
+            <strong>${publishedItems.length}</strong>
+            <span>已完成/有链接</span>
+          </div>
+          <div>
+            <strong>${publishedChannels}</strong>
+            <span>发布渠道链接</span>
+          </div>
+          <div>
+            <strong>${missingItems.length}</strong>
+            <span>素材不齐</span>
+          </div>
+          <div>
+            <strong>${activeItems.length}</strong>
+            <span>后期处理中</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="dashboard-section dashboard-published">
+        <div class="dashboard-section-title">
+          <h4>已发布</h4>
+          <span>${publishedItems.length}</span>
+        </div>
+        ${dashboardPublishedHtml(publishedItems)}
+      </section>
+
+      <div class="dashboard-grid">
+        <section class="dashboard-section">
+          <div class="dashboard-section-title">
+            <h4>后期和分发</h4>
+            <span>${activeItems.length}</span>
+          </div>
+          ${
+            activeItems
+              .slice(0, 8)
+              .map((item) => dashboardItemButtonHtml(item, { meta: workflowLabel(item), detail: nextStepLabel(item) }))
+              .join("") || `<div class="dashboard-empty">当前没有后期处理中的视频。</div>`
+          }
+        </section>
+
+        <section class="dashboard-section">
+          <div class="dashboard-section-title">
+            <h4>素材不齐</h4>
+            <span>${missingItems.length}</span>
+          </div>
+          ${
+            missingItems
+              .slice(0, 8)
+              .map((item) => dashboardItemButtonHtml(item, { meta: productionOwner(item), detail: `缺 ${missingRequiredLabelText(item) || "素材"}` }))
+              .join("") || `<div class="dashboard-empty">没有待补齐素材的视频。</div>`
+          }
+        </section>
+
+        <section class="dashboard-section">
+          <div class="dashboard-section-title">
+            <h4>待录制/待分配</h4>
+            <span>${recordingItems.length}</span>
+          </div>
+          ${
+            recordingItems
+              .slice(0, 8)
+              .map((item) => dashboardItemButtonHtml(item, { meta: workflowLabel(item), detail: `${productionOwner(item)} · ${productionDueDate(item)}` }))
+              .join("") || `<div class="dashboard-empty">当前没有录制排期。</div>`
+          }
+        </section>
+
+        <section class="dashboard-section">
+          <div class="dashboard-section-title">
+            <h4>近 7 天交付</h4>
+            <span>${dueSoon.length}</span>
+          </div>
+          ${
+            dueSoon
+              .slice(0, 8)
+              .map((item) => dashboardItemButtonHtml(item, { meta: compactDateLabel(currentDecision(item).due_date), detail: workflowLabel(item) }))
+              .join("") || `<div class="dashboard-empty">没有临近交付的视频。</div>`
+          }
+        </section>
+      </div>
+
+      <section class="dashboard-section">
+        <div class="dashboard-section-title">
+          <h4>选题池</h4>
+          <span>${topicItems.length}</span>
+        </div>
+        <div class="dashboard-topic-strip">
+          ${
+            topicItems
+              .slice(0, 10)
+              .map((item) => dashboardItemButtonHtml(item, { meta: topicPriorityLabel(item), detail: topicHintLabel(item) }))
+              .join("") || `<div class="dashboard-empty">选题池为空。</div>`
+          }
+        </div>
+      </section>
+    </div>`;
+
+  document.querySelectorAll("[data-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      navigateTo({ id: button.dataset.id, detailOpen: true });
+    });
+  });
+};
+
 const humanWorkflowQueues = ["topic_board", "assignment", "recording", "waiting_upload", "material_review", "editing", "cover_generation", "distribution_confirm"];
 const executionWorkflowQueues = ["edit_output"];
 const workflowPriority = [
@@ -1534,6 +1773,10 @@ const renderMetrics = () => {
 };
 
 const renderList = () => {
+  if (activeFilter === "dashboard") {
+    renderDashboard();
+    return;
+  }
   const list = filteredItems();
   const isOverviewView = activeFilter === "all";
   const isTopicBoardView =
@@ -2124,7 +2367,7 @@ const renderTop = () => {
 
 const render = () => {
   if (!filters.some(([key]) => key === activeFilter)) {
-    activeFilter = "all";
+    activeFilter = "dashboard";
   }
   const activeItem = activeId ? items().find((item) => item.id === activeId) : null;
   if (activeId && (!activeItem || !filterMatch(activeItem, activeFilter))) {
