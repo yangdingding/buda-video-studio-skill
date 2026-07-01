@@ -129,6 +129,15 @@ const escapeHtml = (value) =>
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
 
+const looksLikeTechnicalCaptionSummary = (value) => {
+  const text = String(value || "").trim();
+  if (!text) return false;
+  if (/^SRT\s+Review\s*:/i.test(text)) return true;
+  if (/^(字幕|字幕文件|subtitle|caption|transcript)\s*(review|校对)?\s*[:：]/i.test(text)) return true;
+  if (/^[\w .()[\]\-]+\.(srt|ass|vtt|sbv)$/i.test(text)) return true;
+  return /\.(srt|ass|vtt|sbv)\b/i.test(text) && text.length <= 120;
+};
+
 const normalizeSavedOutputs = (item, decision) => {
   const validChannels = new Set((item.outputs || []).map((output) => output.channel));
   const selected = new Set();
@@ -388,6 +397,7 @@ const reasonLabel = (reason) =>
 
 const rowSummaryLabel = (item) => {
   const summary = String(item.summary || "").trim();
+  if (looksLikeTechnicalCaptionSummary(summary)) return "";
   if (summary && !/cloud asset\(s\) found in Google Drive/i.test(summary)) return summary;
   return "";
 };
