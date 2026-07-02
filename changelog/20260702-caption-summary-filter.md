@@ -22,6 +22,7 @@ AI Agent: Codex
 - Filtered caption-review metadata lines such as `Language: zh-cn`, source/file/encoding, and similar short metadata.
 - Filtered SRT review report fields and headings so token samples can be used instead of report metadata.
 - Added the same front-end guard so old batches do not display SRT review metadata while waiting for regeneration.
+- Prioritized Raw/non-review voiceover text over `.srt.review.md` reports when choosing the video summary source.
 - Reused the same filtering when deriving cover copy from voiceover or caption snippets.
 - Added a caption summary regression test.
 

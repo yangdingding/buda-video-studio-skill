@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
-import { summarizeVoiceover } from "../lib/google-drive-shared.mjs";
+import { buildProjectItem, summarizeVoiceover } from "../lib/google-drive-shared.mjs";
 
 const summary = summarizeVoiceover(`SRT Review: use-case-multi-person-collaboration-zh-cn.srt
 Language: zh-cn
@@ -37,4 +37,35 @@ agent, 就不是某个人电脑里的黑盒, 里继续处理
 就不再是只跑在某个人电脑里的黑盒, 继续处理`);
 
 assert.equal(reviewSummary, "agent, 就不是某个人电脑里的黑盒, 里继续处理");
+
+const item = buildProjectItem({
+  project: {
+    id: "project-1",
+    name: "use-case-multi-person-collaboration",
+    path: "use-case-multi-person-collaboration",
+    created_at: "2026-06-26T00:00:00.000Z",
+  },
+  index: 0,
+  config: {},
+  files: [
+    {
+      id: "review-zh",
+      name: "use-case-multi-person-collaboration-zh-cn.srt.review.md",
+      path: "use-case-multi-person-collaboration/YouTube/use-case-multi-person-collaboration-zh-cn.srt.review.md",
+      extension: ".md",
+    },
+    {
+      id: "raw-zh",
+      name: "use-case-multi-person-collaboration-cn.md",
+      path: "use-case-multi-person-collaboration/Raw/use-case-multi-person-collaboration-cn.md",
+      extension: ".md",
+    },
+  ],
+  readSnippet: (file) =>
+    file.id === "review-zh"
+      ? reviewSummary
+      : "你的 Agent 能多人一起用吗？现在我们可以把 Agent 从单人电脑里的黑盒，升级成团队一起协作的工作台。",
+});
+
+assert.equal(item.summary, "你的 Agent 能多人一起用吗");
 console.log("Caption summary OK.");
