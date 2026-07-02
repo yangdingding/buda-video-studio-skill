@@ -32,6 +32,16 @@ When the user asks to execute approved decisions:
 
 If the user says "chat only", "no UI", "纯聊天", or similar, do not launch the app. Summarize the batch in numbered items and collect approvals in chat.
 
+## Web Buda Handoff
+
+After changing this skill, syncing it to the local installed skill, committing, or pushing, always include a short Web Buda prompt in the final response unless the user explicitly says not to. Keep it concise and include the latest required commit when available:
+
+```text
+请更新 buda-video-studio skill 到最新版，至少包含 commit <commit>。保留现有配置和缓存，重新生成批次并启动工作台。
+```
+
+If there is no commit yet, replace the commit clause with a short description of the local change.
+
 ## Data Sources
 
 The primary source is online Google Drive through the Drive API. Do not rely on a user's local Drive sync path for the normal workflow.

@@ -1640,6 +1640,7 @@ const renderDashboard = () => {
   $("#videoList").innerHTML = `
     <div class="dashboard-board">
       <section class="dashboard-kpi-strip">
+        <div><strong>${distributionItems.length}</strong><span>待确认分发</span></div>
         <div><strong>${publishedItems.length}</strong><span>已发布/已完成</span></div>
         <div><strong>${publishedLinkCount}</strong><span>已填发布链接</span></div>
         <div><strong>${plannedPublishItems.length}</strong><span>本期计划要发</span></div>

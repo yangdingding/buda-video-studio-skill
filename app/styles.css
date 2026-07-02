@@ -523,8 +523,8 @@ label {
 
 .dashboard-kpi-strip {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 18px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 14px;
 }
 
 .dashboard-kpi-strip > div {
@@ -535,7 +535,7 @@ label {
   border-radius: 18px;
   background: var(--panel);
   box-shadow: 0 16px 38px rgba(53, 43, 24, 0.055);
-  padding: 22px 24px;
+  padding: 20px 18px;
 }
 
 .dashboard-kpi-strip strong {
@@ -548,13 +548,12 @@ label {
 
 .dashboard-kpi-strip span {
   order: -1;
-  margin: 0 0 18px;
+  margin: 0 0 16px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 650;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
   line-height: 1.25;
-  text-transform: uppercase;
 }
 
 .dashboard-hero {
