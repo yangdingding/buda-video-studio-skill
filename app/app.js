@@ -174,6 +174,10 @@ const looksLikeTechnicalCaptionSummary = (value) => {
   const text = String(value || "").trim();
   if (!text) return false;
   if (/^SRT\s+Review\s*:/i.test(text)) return true;
+  if (/^(language|locale|lang)\s*[:：]\s*[\w-]+$/i.test(text)) return true;
+  if (/^(duration|source|file|filename|encoding|format|reviewed|created|updated|generated this run|reference source|reference path|brand replacements|missing brand terms from srt)\s*[:：]/i.test(text) && text.length <= 180) return true;
+  if (/^(human review notes|reference-only tokens sample|srt-only tokens sample|reference only tokens sample|srt only tokens sample)$/i.test(text)) return true;
+  if (/^no obvious brand-term issues found\b/i.test(text)) return true;
   if (/^(字幕|字幕文件|subtitle|caption|transcript)\s*(review|校对)?\s*[:：]/i.test(text)) return true;
   if (/^[\w .()[\]\-]+\.(srt|ass|vtt|sbv)$/i.test(text)) return true;
   return /\.(srt|ass|vtt|sbv)\b/i.test(text) && text.length <= 120;

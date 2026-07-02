@@ -21,6 +21,7 @@ AI Agent: Codex
 ## What Changed
 - Filtered caption-review metadata lines such as `Language: zh-cn`, source/file/encoding, and similar short metadata.
 - Filtered SRT review report fields and headings so token samples can be used instead of report metadata.
+- Added the same front-end guard so old batches do not display SRT review metadata while waiting for regeneration.
 - Reused the same filtering when deriving cover copy from voiceover or caption snippets.
 - Added a caption summary regression test.
 
@@ -29,6 +30,8 @@ AI Agent: Codex
 
 ## Files Affected
 - `lib/google-drive-shared.mjs` - Improved technical caption metadata filtering.
+- `app/app.js` - Hid SRT review metadata summaries in the UI as a defensive fallback.
+- `app/index.html` - Bumped asset versions for the front-end fallback.
 - `scripts/test_caption_summary.mjs` - Added regression coverage for SRT review metadata.
 
 ## Breaking Changes
