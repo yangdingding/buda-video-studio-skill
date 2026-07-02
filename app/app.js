@@ -23,8 +23,49 @@ let syncing = false;
 let isApplyingRoute = false;
 let stateSnapshot = "";
 const openArchivedAssetIds = new Set();
+const sidebarCollapsedStorageKey = "buda-video-studio-sidebar-collapsed";
+let sidebarCollapsed = window.localStorage.getItem(sidebarCollapsedStorageKey) === "true";
+let mobileSidebarOpen = false;
 
 const $ = (selector) => document.querySelector(selector);
+
+const sidebarIcon = (collapsed) => `
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" aria-hidden="true" focusable="false">
+    <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+    <path d="M9 4v16"></path>
+    ${collapsed ? '<path d="m14 9 3 3-3 3"></path>' : '<path d="m17 9-3 3 3 3"></path>'}
+  </svg>`;
+
+const renderSidebarState = () => {
+  const shell = $(".shell");
+  const toggle = $("#sidebarToggle");
+  shell?.classList.toggle("sidebar-collapsed", sidebarCollapsed);
+  shell?.classList.toggle("mobile-sidebar-open", mobileSidebarOpen);
+  const backdrop = $("#sidebarBackdrop");
+  if (backdrop) {
+    backdrop.hidden = !mobileSidebarOpen;
+  }
+  if (!toggle) return;
+  toggle.innerHTML = sidebarIcon(sidebarCollapsed);
+  toggle.setAttribute("aria-label", sidebarCollapsed ? "展开侧边栏" : "折叠侧边栏");
+  toggle.setAttribute("title", sidebarCollapsed ? "展开侧边栏" : "折叠侧边栏");
+};
+
+const toggleSidebar = () => {
+  sidebarCollapsed = !sidebarCollapsed;
+  window.localStorage.setItem(sidebarCollapsedStorageKey, String(sidebarCollapsed));
+  renderSidebarState();
+};
+
+const openMobileSidebar = () => {
+  mobileSidebarOpen = true;
+  renderSidebarState();
+};
+
+const closeMobileSidebar = () => {
+  mobileSidebarOpen = false;
+  renderSidebarState();
+};
 
 const routeFilters = () => filters.map(([key]) => key);
 
@@ -1851,7 +1892,8 @@ const renderFilters = () => {
     .map(
       ([key, label]) => `
         <button class="filter-button ${activeFilter === key ? "active" : ""}" data-filter="${key}" title="Filter: ${label}">
-          <span>${label}</span>
+          <span class="filter-short" aria-hidden="true">${escapeHtml(label.slice(0, 1))}</span>
+          <span class="filter-label">${label}</span>
           <span class="count">${counts[key] || 0}</span>
         </button>`
     )
@@ -1859,6 +1901,7 @@ const renderFilters = () => {
 
   document.querySelectorAll("[data-filter]").forEach((button) => {
     button.addEventListener("click", () => {
+      closeMobileSidebar();
       navigateTo({ filter: button.dataset.filter, id: null, detailOpen: false });
     });
   });
@@ -2539,6 +2582,7 @@ const render = () => {
     syncRoute();
   }
   renderTop();
+  renderSidebarState();
   renderActionPanel();
   renderFilters();
   renderSettings();
@@ -2609,6 +2653,9 @@ $("#searchInput").addEventListener("input", (event) => {
 });
 
 $("#syncButton")?.addEventListener("click", syncNow);
+$("#sidebarToggle")?.addEventListener("click", toggleSidebar);
+$("#mobileSidebarButton")?.addEventListener("click", openMobileSidebar);
+$("#sidebarBackdrop")?.addEventListener("click", closeMobileSidebar);
 
 $("#drawerBackdrop").addEventListener("click", () => {
   navigateTo({ id: null, detailOpen: false }, { replace: true });
@@ -2626,6 +2673,10 @@ document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
   if ($("#videoPreview") && !$("#videoPreview").hidden) {
     closeFilePreview();
+    return;
+  }
+  if (mobileSidebarOpen) {
+    closeMobileSidebar();
     return;
   }
   if (detailOpen) {

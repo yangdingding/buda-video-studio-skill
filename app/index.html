@@ -9,17 +9,18 @@
         window.location.replace("http://127.0.0.1:3000/");
       }
     </script>
-    <link rel="stylesheet" href="/styles.css?v=20260630-asset-download" />
+    <link rel="stylesheet" href="/styles.css?v=20260702-mobile-sidebar-drawer" />
   </head>
   <body>
     <div class="shell">
       <aside class="sidebar">
         <div class="brand">
           <div class="mark">VS</div>
-          <div>
+          <div class="brand-copy">
             <h1>Buda Video Studio</h1>
             <p id="batchMeta">Loading</p>
           </div>
+          <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-label="折叠侧边栏" title="折叠侧边栏"></button>
         </div>
         <section class="approval-panel" id="approvalPanel"></section>
         <section class="sidebar-block">
@@ -31,10 +32,18 @@
 
       <main class="workspace">
         <header class="topbar">
-          <div>
-            <div class="eyebrow">云端硬盘视频制作台</div>
-            <h2 id="viewTitle">全部视频</h2>
-            <p id="viewSubtitle">Loading batch</p>
+          <div class="top-heading">
+            <button class="mobile-sidebar-button" id="mobileSidebarButton" type="button" aria-label="打开工作队列" title="打开工作队列">
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" aria-hidden="true" focusable="false">
+                <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+                <path d="M9 4v16"></path>
+              </svg>
+            </button>
+            <div>
+              <div class="eyebrow">云端硬盘视频制作台</div>
+              <h2 id="viewTitle">全部视频</h2>
+              <p id="viewSubtitle">Loading batch</p>
+            </div>
           </div>
           <div class="top-actions">
             <button class="sync-button" id="syncButton" type="button">
@@ -70,6 +79,7 @@
         </section>
       </main>
     </div>
+    <div class="sidebar-backdrop" id="sidebarBackdrop" hidden></div>
     <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
     <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
     <div class="video-preview" id="videoPreview" hidden>
@@ -82,6 +92,6 @@
         <p class="video-preview-note">使用 Google Drive 官方预览。若无法查看，请确认当前 Google 账号有权限，或在 Drive 中打开。</p>
       </div>
     </div>
-    <script type="module" src="/app.js?v=20260630-asset-download"></script>
+    <script type="module" src="/app.js?v=20260702-mobile-sidebar-drawer"></script>
   </body>
 </html>

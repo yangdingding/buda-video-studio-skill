@@ -42,6 +42,11 @@ After changing this skill, syncing it to the local installed skill, committing, 
 
 If there is no commit yet, replace the commit clause with a short description of the local change.
 
+## Local App Maintenance
+
+- Preserve meaningful UI state with the app's hash route or local storage when it helps users return to the same view, including sidebar expansion, dashboard/detail routes, and settings panels.
+- Keep sidebar and dashboard changes compatible with the existing `app/.cache/` handoff files and `config.local.yml`; do not migrate private state formats just to match a newer scaffold.
+
 ## Data Sources
 
 The primary source is online Google Drive through the Drive API. Do not rely on a user's local Drive sync path for the normal workflow.
