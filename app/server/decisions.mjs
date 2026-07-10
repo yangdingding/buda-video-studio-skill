@@ -25,6 +25,24 @@ const normalizeAssetOverrides = (value) => ({
   cover_source: value?.cover_source === "rejected" ? "rejected" : "",
 });
 
+const normalizeDistributionCopy = (value) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value)
+      .map(([channel, copy]) => {
+        if (!channel || !copy || typeof copy !== "object" || Array.isArray(copy)) return null;
+        return [
+          channel,
+          {
+            title: String(copy.title || ""),
+            body: String(copy.body || ""),
+          },
+        ];
+      })
+      .filter(Boolean)
+  );
+};
+
 const hasDistributionApprovals = (value) =>
   Object.values(normalizeDistributionApprovals(value)).every(Boolean);
 
@@ -89,6 +107,9 @@ export const saveDecision = async (payload) => {
   const assetOverrides = Object.prototype.hasOwnProperty.call(payload, "asset_overrides")
     ? normalizeAssetOverrides(payload.asset_overrides)
     : normalizeAssetOverrides(previous.asset_overrides);
+  const distributionCopy = Object.prototype.hasOwnProperty.call(payload, "distribution_copy")
+    ? normalizeDistributionCopy(payload.distribution_copy)
+    : normalizeDistributionCopy(previous.distribution_copy);
   const workflowDone = Boolean((payload.workflow_done || previous.workflow_done) && hasDistributionApprovals(distributionApprovals));
   decisions[payload.id] = {
     action: payload.action || "",
@@ -110,6 +131,7 @@ export const saveDecision = async (payload) => {
       payload.published_links && typeof payload.published_links === "object" && !Array.isArray(payload.published_links)
         ? payload.published_links
         : previous.published_links || {},
+    distribution_copy: distributionCopy,
     workflow_step: payload.workflow_step || previous.workflow_step || "",
     distribution_approvals: distributionApprovals,
     workflow_done: workflowDone,

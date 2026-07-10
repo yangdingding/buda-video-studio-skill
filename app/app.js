@@ -170,6 +170,13 @@ const escapeHtml = (value) =>
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
 
+const compactPlainText = (value, maxLength = 180) => {
+  const text = String(value || "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text.length > maxLength ? `${text.slice(0, maxLength).replace(/\s+\S*$/, "")}...` : text;
+};
+
 const looksLikeTechnicalCaptionSummary = (value) => {
   const text = String(value || "").trim();
   if (!text) return false;
@@ -224,6 +231,63 @@ const selectedOrDefaultOutputChannels = (item) => {
 const selectedOutputsForPublishing = (item, decision = currentDecision(item)) => {
   const selected = normalizeSavedOutputs(item, decision);
   return selected.size > 0 ? selected : selectedOrDefaultOutputChannels(item);
+};
+
+const normalizeDistributionCopy = (value) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value)
+      .map(([channel, copy]) => {
+        if (!channel) return null;
+        if (copy && typeof copy === "object" && !Array.isArray(copy)) {
+          return [
+            channel,
+            {
+              title: String(copy.title || ""),
+              body: String(copy.body || ""),
+            },
+          ];
+        }
+        return [
+          channel,
+          {
+            title: "",
+            body: String(copy || ""),
+          },
+        ];
+      })
+      .filter(Boolean)
+  );
+};
+
+const fallbackDistributionCopyFor = (item, channel) => {
+  const title = item.cover_copy?.locales?.zh?.title || item.cover_copy?.title || item.title || channel;
+  const summary = compactPlainText(item.summary || item.body || item.cover_copy?.subtitle || title, 180);
+  const tags =
+    channel === "小红书"
+      ? "#Buda #AI工作流 #效率工具"
+      : channel === "视频号"
+        ? "#Buda #AI工作流"
+        : channel === "LinkedIn"
+          ? "#AIAgents #WorkflowAutomation #Buda"
+          : "#Buda #AIAgents";
+  return {
+    title,
+    body: `${title}\n\n${summary}\n\n关注 Buda，获取更多 AI GTM 自动化工作流。\n\n${tags}`,
+  };
+};
+
+const distributionCopyEntry = (item, decision, channel) => {
+  const saved = normalizeDistributionCopy(decision.distribution_copy);
+  const defaults = normalizeDistributionCopy(item.distribution_copy);
+  const fallback = fallbackDistributionCopyFor(item, channel);
+  const hasSaved = Object.prototype.hasOwnProperty.call(saved, channel);
+  const savedCopy = saved[channel] || {};
+  const defaultCopy = defaults[channel] || {};
+  return {
+    title: hasSaved ? savedCopy.title : defaultCopy.title || fallback.title,
+    body: hasSaved ? savedCopy.body : defaultCopy.body || fallback.body,
+  };
 };
 
 const channelRequirementLabel = (item) => {
@@ -1334,6 +1398,44 @@ const publishedLinksHtml = (item, locked) => {
 	    </section>`;
 };
 
+const distributionCopyCardHtml = (item, decision, output, selectedOutputs, locked) => {
+  const checked = selectedOutputs.has(output.channel);
+  const copy = distributionCopyEntry(item, decision, output.channel);
+  const disabled = locked || !checked;
+  return `
+    <div class="distribution-copy-card ${checked ? "" : "disabled"}" data-distribution-copy-card="${escapeHtml(output.channel)}">
+      <div class="distribution-copy-head">
+        <strong>${escapeHtml(output.channel)}</strong>
+        ${outputSpecsHtml(output)}
+      </div>
+      <label class="field">
+        <span>发布标题</span>
+        <input data-distribution-copy-title="${escapeHtml(output.channel)}" value="${escapeHtml(copy.title)}" ${disabled ? "disabled" : ""} />
+      </label>
+      <label class="field">
+        <span>发布正文</span>
+        <textarea data-distribution-copy-body="${escapeHtml(output.channel)}" ${disabled ? "disabled" : ""}>${escapeHtml(copy.body)}</textarea>
+      </label>
+    </div>`;
+};
+
+const distributionCopyHtml = (item, locked) => {
+  const queue = workflowQueue(item);
+  if (!["distribution_confirm", "done"].includes(queue)) return "";
+  const decision = currentDecision(item);
+  const selectedOutputs = selectedOutputsForPublishing(item, decision);
+  return `
+    <section class="section form-section distribution-copy-section">
+      <div class="section-title">
+        <h4>各平台发布内容</h4>
+        <p>按当前勾选平台预填，可直接改成最终发布文案；取消勾选的平台会停用。</p>
+      </div>
+      <div class="distribution-copy-list">
+        ${item.outputs.map((output) => distributionCopyCardHtml(item, decision, output, selectedOutputs, locked)).join("")}
+      </div>
+    </section>`;
+};
+
 const detailBodyHtml = (item, assetsByType, selectedOutputs, decision, locked) => {
   const queue = workflowQueue(item);
   const sourceAssets = filterAssetsByTypes(assetsByType, assetTypes.source);
@@ -1407,9 +1509,11 @@ const detailBodyHtml = (item, assetsByType, selectedOutputs, decision, locked) =
       ${archivedAssetsHtml(item, coverAssets)}`,
     distribution_confirm: `
       ${assetsHtml(item, distributionAssets)}
+      ${distributionCopyHtml(item, locked)}
       ${publishedLinksHtml(item, locked)}`,
     done: `
       ${doneSummaryHtml(item, selectedOutputs)}
+      ${distributionCopyHtml(item, locked)}
       ${publishedLinksHtml(item, locked)}
       ${archivedAssetsHtml(item, assetsByType)}`,
     blocked: `
@@ -2314,10 +2418,21 @@ const renderDetail = () => {
     input.addEventListener("change", () => {
       const row = input.closest(".publish-output-row");
       const linkInput = row?.querySelector("[data-published-link]");
-      if (!linkInput || locked) return;
-      linkInput.disabled = !input.checked;
-      linkInput.placeholder = input.checked ? "https://..." : "勾选后填写链接";
-      if (input.checked) linkInput.focus();
+      const copyCard = [...document.querySelectorAll("[data-distribution-copy-card]")].find(
+        (card) => card.dataset.distributionCopyCard === input.dataset.output
+      );
+      if (locked) return;
+      if (linkInput) {
+        linkInput.disabled = !input.checked;
+        linkInput.placeholder = input.checked ? "https://..." : "勾选后填写链接";
+      }
+      if (copyCard) {
+        copyCard.classList.toggle("disabled", !input.checked);
+        copyCard.querySelectorAll("input, textarea").forEach((field) => {
+          field.disabled = !input.checked;
+        });
+      }
+      if (input.checked && linkInput) linkInput.focus();
     });
   });
   document.querySelectorAll("[data-preview-file]").forEach((button) => {
@@ -2443,6 +2558,23 @@ const saveDecision = async (id, action, options = {}) => {
     decision.published_links && typeof decision.published_links === "object" && !Array.isArray(decision.published_links)
       ? decision.published_links
       : {};
+  const distributionCopyTitleInputs = [...document.querySelectorAll("[data-distribution-copy-title]")];
+  const distributionCopyBodyInputs = [...document.querySelectorAll("[data-distribution-copy-body]")];
+  const previousDistributionCopy = normalizeDistributionCopy(decision.distribution_copy);
+  const distributionCopy =
+    distributionCopyTitleInputs.length || distributionCopyBodyInputs.length
+      ? Object.fromEntries(
+          outputs
+            .map((channel) => {
+              const titleInput = distributionCopyTitleInputs.find((input) => input.dataset.distributionCopyTitle === channel);
+              const bodyInput = distributionCopyBodyInputs.find((input) => input.dataset.distributionCopyBody === channel);
+              const title = (titleInput?.value || "").trim();
+              const body = (bodyInput?.value || "").trim();
+              return title || body ? [channel, { title, body }] : null;
+            })
+            .filter(Boolean)
+        )
+      : previousDistributionCopy;
   const distributionApprovalInputs = [...document.querySelectorAll("[data-distribution-approval]")];
   const assetRejectInputs = [...document.querySelectorAll("[data-asset-reject]")];
   const previousAssetOverrides =
@@ -2513,6 +2645,7 @@ const saveDecision = async (id, action, options = {}) => {
       outputs,
       asset_overrides: assetOverrides,
       published_links: publishedLinkInputs.length ? publishedLinks : previousPublishedLinks,
+      distribution_copy: distributionCopy,
       distribution_approvals: nextDistributionApprovals,
       workflow_step: workflowStep,
       workflow_done: workflowDone || Boolean(decision.workflow_done && hasDistributionApprovals(nextDistributionDecision)),

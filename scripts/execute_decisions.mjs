@@ -53,6 +53,44 @@ Variants:
 ${item.cover_copy.variants.map((variant) => `- ${variant}`).join("\n")}
 `;
 
+const normalizeDistributionCopy = (value) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value)
+      .map(([channel, copy]) => {
+        if (!channel || !copy || typeof copy !== "object" || Array.isArray(copy)) return null;
+        return [
+          channel,
+          {
+            title: String(copy.title || ""),
+            body: String(copy.body || ""),
+          },
+        ];
+      })
+      .filter(Boolean)
+  );
+};
+
+const renderDistributionCopy = (item, decision) => {
+  const copy = {
+    ...normalizeDistributionCopy(item.distribution_copy),
+    ...normalizeDistributionCopy(decision.distribution_copy),
+  };
+  const channels = Array.isArray(decision.outputs) && decision.outputs.length ? decision.outputs : item.outputs.map((output) => output.channel);
+  return channels
+    .map((channel) => {
+      const entry = copy[channel] || {};
+      return `### ${channel}
+
+Title:
+${entry.title || ""}
+
+Body:
+${entry.body || ""}`;
+    })
+    .join("\n\n");
+};
+
 const renderDistribution = (item, decision) => `# Distribution Checklist: ${item.title}
 
 Ref: ${item.ref}
@@ -69,6 +107,10 @@ ${item.outputs
   - Copy required: ${output.copy_required ? "yes" : "no"}`
   )
   .join("\n")}
+
+## Platform Copy
+
+${renderDistributionCopy(item, decision) || "No platform copy provided."}
 
 ## CTA
 

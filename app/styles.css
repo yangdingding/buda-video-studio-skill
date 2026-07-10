@@ -2246,6 +2246,40 @@ label {
   background: color-mix(in oklch, var(--panel-soft) 54%, var(--panel));
 }
 
+.distribution-copy-list {
+  display: grid;
+  gap: 12px;
+}
+
+.distribution-copy-card {
+  display: grid;
+  gap: 10px;
+  border: 1px solid color-mix(in oklch, var(--line-soft) 70%, transparent);
+  border-radius: 8px;
+  background: color-mix(in oklch, var(--panel-soft) 36%, var(--panel));
+  padding: 12px;
+}
+
+.distribution-copy-card.disabled {
+  opacity: 0.54;
+}
+
+.distribution-copy-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.distribution-copy-head strong {
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.distribution-copy-card textarea {
+  min-height: 132px;
+}
+
 .published-link-row {
   display: grid;
   grid-template-columns: 106px minmax(0, 1fr);

@@ -41,6 +41,7 @@ const decisionHasValue = (decision) =>
       decision?.workflow_done ||
       Object.values(decision?.distribution_approvals || {}).some(Boolean) ||
       decision?.outputs?.length ||
+      Object.keys(decision?.distribution_copy || {}).length ||
       Object.keys(decision?.published_links || {}).length
   );
 
