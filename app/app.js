@@ -1701,6 +1701,10 @@ const dashboardStatusCardHtml = (item, options = {}) => {
           ? `${productionOwner(item)} · ${productionDueDate(item)}`
           : nextStepLabel(item));
   const meta = options.meta || workflowLabel(item);
+  const summaryLabel = rowSummaryLabel(item);
+  const hasReadableSummary = summaryLabel && summaryLabel !== item.title;
+  const primaryTitle = hasReadableSummary ? summaryLabel : item.title;
+  const secondaryTitle = hasReadableSummary ? item.title : detail;
 
   return `
     <button class="dashboard-status-card" data-dashboard-open="${escapeHtml(item.id)}" type="button">
@@ -1708,8 +1712,8 @@ const dashboardStatusCardHtml = (item, options = {}) => {
         <span>${escapeHtml(item.ref)}</span>
         <span>${escapeHtml(meta)}</span>
       </div>
-      <strong>${escapeHtml(item.title)}</strong>
-      <p>${escapeHtml(rowSummaryLabel(item) || detail)}</p>
+      <strong>${escapeHtml(primaryTitle)}</strong>
+      <p>${escapeHtml(secondaryTitle)}</p>
       <div class="dashboard-status-foot">
         <span>${escapeHtml(detail)}</span>
         ${decision.due_date ? `<span>${escapeHtml(compactDateLabel(decision.due_date))}</span>` : ""}
