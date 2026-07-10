@@ -837,7 +837,9 @@ label {
 }
 
 .published-dashboard-row {
+  grid-template-columns: minmax(220px, 0.8fr) minmax(260px, 1.2fr);
   margin: 14px 16px 0;
+  align-items: start;
 }
 
 .dashboard-item {
@@ -857,11 +859,14 @@ label {
 .dashboard-item-kicker,
 .published-title span {
   display: block;
+  overflow: hidden;
   color: var(--faint);
   font-size: 11px;
   font-weight: 450;
   letter-spacing: 0.06em;
+  text-overflow: ellipsis;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .dashboard-item strong,
@@ -917,12 +922,14 @@ label {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 7px;
+  min-width: 0;
 }
 
 .published-channel-list a,
 .published-channel-missing {
   display: inline-flex;
   align-items: center;
+  max-width: 100%;
   min-height: 26px;
   border: 1px solid var(--line-soft);
   border-radius: 6px;
