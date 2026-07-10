@@ -2256,12 +2256,13 @@ label {
   gap: 10px;
   border: 1px solid color-mix(in oklch, var(--line-soft) 70%, transparent);
   border-radius: 8px;
-  background: color-mix(in oklch, var(--panel-soft) 36%, var(--panel));
+  background: var(--panel);
   padding: 12px;
 }
 
 .distribution-copy-card.disabled {
-  opacity: 0.54;
+  border-style: dashed;
+  background: color-mix(in oklch, var(--panel-soft) 32%, var(--panel));
 }
 
 .distribution-copy-head {
@@ -2274,6 +2275,31 @@ label {
 .distribution-copy-head strong {
   color: var(--ink);
   font-size: 12px;
+}
+
+.distribution-copy-state {
+  border: 1px solid color-mix(in oklch, var(--line) 72%, transparent);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1;
+  padding: 4px 7px;
+}
+
+.distribution-copy-card input,
+.distribution-copy-card textarea {
+  background: var(--panel);
+  color: var(--ink);
+  opacity: 1;
+  -webkit-text-fill-color: var(--ink);
+}
+
+.distribution-copy-card input:disabled,
+.distribution-copy-card textarea:disabled {
+  color: var(--ink);
+  cursor: default;
+  opacity: 1;
+  -webkit-text-fill-color: var(--ink);
 }
 
 .distribution-copy-card textarea {

@@ -1401,20 +1401,20 @@ const publishedLinksHtml = (item, locked) => {
 const distributionCopyCardHtml = (item, decision, output, selectedOutputs, locked) => {
   const checked = selectedOutputs.has(output.channel);
   const copy = distributionCopyEntry(item, decision, output.channel);
-  const disabled = locked || !checked;
   return `
     <div class="distribution-copy-card ${checked ? "" : "disabled"}" data-distribution-copy-card="${escapeHtml(output.channel)}">
       <div class="distribution-copy-head">
         <strong>${escapeHtml(output.channel)}</strong>
+        ${checked ? "" : '<span class="distribution-copy-state">未选</span>'}
         ${outputSpecsHtml(output)}
       </div>
       <label class="field">
         <span>发布标题</span>
-        <input data-distribution-copy-title="${escapeHtml(output.channel)}" value="${escapeHtml(copy.title)}" ${disabled ? "disabled" : ""} />
+        <input data-distribution-copy-title="${escapeHtml(output.channel)}" value="${escapeHtml(copy.title)}" ${locked ? "disabled" : ""} />
       </label>
       <label class="field">
         <span>发布正文</span>
-        <textarea data-distribution-copy-body="${escapeHtml(output.channel)}" ${disabled ? "disabled" : ""}>${escapeHtml(copy.body)}</textarea>
+        <textarea data-distribution-copy-body="${escapeHtml(output.channel)}" ${locked ? "disabled" : ""}>${escapeHtml(copy.body)}</textarea>
       </label>
     </div>`;
 };
@@ -2428,9 +2428,11 @@ const renderDetail = () => {
       }
       if (copyCard) {
         copyCard.classList.toggle("disabled", !input.checked);
-        copyCard.querySelectorAll("input, textarea").forEach((field) => {
-          field.disabled = !input.checked;
-        });
+        const stateBadge = copyCard.querySelector(".distribution-copy-state");
+        if (stateBadge) stateBadge.remove();
+        if (!input.checked) {
+          copyCard.querySelector(".distribution-copy-head strong")?.insertAdjacentHTML("afterend", '<span class="distribution-copy-state">未选</span>');
+        }
       }
       if (input.checked && linkInput) linkInput.focus();
     });
@@ -2564,7 +2566,13 @@ const saveDecision = async (id, action, options = {}) => {
   const distributionCopy =
     distributionCopyTitleInputs.length || distributionCopyBodyInputs.length
       ? Object.fromEntries(
-          outputs
+          [
+            ...new Set(
+              [...distributionCopyTitleInputs, ...distributionCopyBodyInputs]
+                .map((input) => input.dataset.distributionCopyTitle || input.dataset.distributionCopyBody)
+                .filter(Boolean)
+            ),
+          ]
             .map((channel) => {
               const titleInput = distributionCopyTitleInputs.find((input) => input.dataset.distributionCopyTitle === channel);
               const bodyInput = distributionCopyBodyInputs.find((input) => input.dataset.distributionCopyBody === channel);
