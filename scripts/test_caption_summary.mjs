@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
-import { buildProjectItem, summarizeVoiceover } from "../lib/google-drive-shared.mjs";
+import { buildProjectItem, contentTitleFromName, displayIdFromName, summarizeVoiceover } from "../lib/google-drive-shared.mjs";
+
+assert.equal(contentTitleFromName("Buda-release-video-agent-permission"), "Release video agent permission");
+assert.equal(displayIdFromName("Buda-release-video-agent-permission"), "release-video-agent-permission");
+assert.equal(contentTitleFromName("use-case-multi-person-collaboration"), "Multi person collaboration");
+assert.equal(contentTitleFromName("use-casexxx"), "Xxx");
 
 const summary = summarizeVoiceover(`SRT Review: use-case-multi-person-collaboration-zh-cn.srt
 Language: zh-cn
@@ -68,4 +73,7 @@ const item = buildProjectItem({
 });
 
 assert.equal(item.summary, "你的 Agent 能多人一起用吗");
+assert.equal(item.display_id, "multi-person-collaboration");
+assert.equal(item.filename, "use-case-multi-person-collaboration");
+assert.equal(item.title, "Multi person collaboration");
 console.log("Caption summary OK.");

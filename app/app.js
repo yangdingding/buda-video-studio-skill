@@ -529,6 +529,24 @@ const items = () => state?.batch?.items || [];
 
 const currentDecision = (item) => state?.decisions?.[item.id] || item.decision || {};
 
+const itemDisplayId = (item) => item.display_id || item.content_id || String(item.id || "").replace(/^(video|topic)-/, "") || item.ref;
+
+const itemFilename = (item) =>
+  item.filename || item.file_name || item.source_assets?.find((asset) => asset.name)?.name || item.title || item.ref;
+
+const itemKickerHtml = (item) => `
+  <div class="queue-code">
+    <span>${escapeHtml(item.ref)}</span>
+    <span>ID ${escapeHtml(itemDisplayId(item))}</span>
+  </div>`;
+
+const rowFilenameHtml = (item) => {
+  const filename = itemFilename(item);
+  return filename && filename !== item.title
+    ? `<p class="row-filename"><span>Filename</span>${escapeHtml(filename)}</p>`
+    : "";
+};
+
 const itemAssetCount = (item, type) => item.source_assets.filter((asset) => asset.type === type).length;
 
 const requiredAssetKeys = ["raw_video", "cover_source", "voiceover"];
@@ -1564,7 +1582,7 @@ const reviewNotePlaceholder = (item) => {
 
 const filteredItems = () =>
   items().filter((item) => {
-    const text = `${item.title} ${item.summary} ${item.stage} ${item.status} ${item.outputs
+    const text = `${itemDisplayId(item)} ${itemFilename(item)} ${item.title} ${item.summary} ${item.stage} ${item.status} ${item.outputs
       .map((output) => output.channel)
       .join(" ")}`.toLowerCase();
     const matchesSearch = !search || text.includes(search.toLowerCase());
@@ -1574,7 +1592,7 @@ const filteredItems = () =>
 
 const dashboardItems = (predicate) =>
   items().filter((item) => {
-    const text = `${item.title} ${item.summary} ${workflowLabel(item)} ${publishedChannelEntries(item)
+    const text = `${itemDisplayId(item)} ${itemFilename(item)} ${item.title} ${item.summary} ${workflowLabel(item)} ${publishedChannelEntries(item)
       .map((entry) => entry.channel)
       .join(" ")}`.toLowerCase();
     return (!search || text.includes(search.toLowerCase())) && predicate(item);
@@ -1610,7 +1628,7 @@ const dashboardItemButtonHtml = (item, options = {}) => {
   return `
     <button class="dashboard-item ${activeId === item.id ? "active" : ""}" data-dashboard-id="${escapeHtml(item.id)}" type="button">
       <div>
-        <span class="dashboard-item-kicker">${escapeHtml(item.ref)}</span>
+        <span class="dashboard-item-kicker">${escapeHtml(`${item.ref} / ID ${itemDisplayId(item)}`)}</span>
         <strong>${escapeHtml(item.title)}</strong>
         <small>${escapeHtml(detail)}</small>
       </div>
@@ -1632,7 +1650,7 @@ const dashboardPublishedHtml = (publishedItems) => {
       return `
         <div class="published-dashboard-row">
           <button class="published-title" data-dashboard-open="${escapeHtml(item.id)}" type="button">
-            <span>${escapeHtml(item.ref)}</span>
+            <span>${escapeHtml(`${item.ref} / ID ${itemDisplayId(item)}`)}</span>
             <strong>${escapeHtml(item.title)}</strong>
           </button>
           <div class="published-channel-list">
@@ -2094,7 +2112,7 @@ const renderList = () => {
     (activeFilter === "waiting_upload" || (list.length > 0 && list.every((item) => workflowQueue(item) === "waiting_upload")));
   const header = isTopicBoardView
     ? `<div class="list-header topic-header">
-      <span>选题</span>
+      <span>ID / Title / Filename</span>
       <span>来源</span>
       <span>优先级</span>
       <span>负责人</span>
@@ -2103,7 +2121,7 @@ const renderList = () => {
     </div>`
     : isRecordingPlanView
       ? `<div class="list-header recording-header">
-      <span>视频项目</span>
+      <span>ID / Title / Filename</span>
       <span>阶段</span>
       <span>负责人</span>
       <span>交付时间</span>
@@ -2112,7 +2130,7 @@ const renderList = () => {
     </div>`
       : isMaterialGapView
         ? `<div class="list-header gap-header">
-      <span>视频项目</span>
+      <span>ID / Title / Filename</span>
       <span>阶段</span>
       <span>负责人/交付</span>
       <span>视频</span>
@@ -2121,7 +2139,7 @@ const renderList = () => {
     </div>`
       : isOverviewView
         ? `<div class="list-header overview-header">
-      <span>视频项目</span>
+      <span>ID / Title / Filename</span>
       <span>阶段</span>
       <span>负责人</span>
       <span>交付时间</span>
@@ -2131,7 +2149,7 @@ const renderList = () => {
       <span>提示</span>
     </div>`
     : `<div class="list-header">
-      <span>视频项目</span>
+      <span>ID / Title / Filename</span>
       <span>阶段</span>
       <span>状态</span>
       <span>口播稿</span>
@@ -2149,8 +2167,9 @@ const renderList = () => {
           return `
         <button class="video-row topic-row ${activeId === item.id ? "active" : ""}" data-id="${item.id}" data-stage="${escapeHtml(item.stage)}">
           <div class="video-main">
-            <div class="queue-code">${escapeHtml(item.ref.replace(/^Video/i, "Topic"))}</div>
+            ${itemKickerHtml({ ...item, ref: item.ref.replace(/^Video/i, "Topic") })}
             <div class="row-title">${escapeHtml(item.title)}</div>
+            ${rowFilenameHtml(item)}
             ${rowSummaryHtml(item)}
           </div>
           <div class="stage-cell" data-label="来源">
@@ -2195,8 +2214,9 @@ const renderList = () => {
         return `
         <button class="video-row ${rowViewClass} ${activeId === item.id ? "active" : ""}" data-id="${item.id}" data-stage="${escapeHtml(item.stage)}">
           <div class="video-main">
-            <div class="queue-code">${escapeHtml(item.ref)}</div>
+            ${itemKickerHtml(item)}
             <div class="row-title">${escapeHtml(item.title)}</div>
+            ${rowFilenameHtml(item)}
             ${rowSummaryHtml(item)}
           </div>
           <div class="stage-cell" data-label="阶段">
@@ -2308,7 +2328,7 @@ const renderDetail = () => {
     <div class="drawer-top">
       <div>
         <span class="drawer-kicker">视频详情</span>
-        <strong>${escapeHtml(`${item.ref} · ${item.title}`)}</strong>
+        <strong>${escapeHtml(`${item.ref} · ID ${itemDisplayId(item)}`)}</strong>
       </div>
       <button class="drawer-close" id="closeDetail" aria-label="关闭详情" title="关闭详情">×</button>
     </div>
@@ -2316,6 +2336,20 @@ const renderDetail = () => {
       <div>
         <h3>${escapeHtml(detailTitle(item))}</h3>
         <p>${escapeHtml(detailDescription(item))}</p>
+        <div class="detail-meta-grid">
+          <div>
+            <span>ID</span>
+            <strong>${escapeHtml(itemDisplayId(item))}</strong>
+          </div>
+          <div>
+            <span>Filename</span>
+            <strong>${escapeHtml(itemFilename(item))}</strong>
+          </div>
+          <div>
+            <span>Title</span>
+            <strong>${escapeHtml(item.title)}</strong>
+          </div>
+        </div>
 	      </div>
 	      <div class="detail-state-line">
 	        <span>${escapeHtml(workflowText)}</span>

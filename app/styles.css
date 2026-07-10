@@ -1117,6 +1117,9 @@ label {
 }
 
 .queue-code {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
   color: var(--faint);
   font-size: 11px;
   font-weight: 450;
@@ -1133,6 +1136,25 @@ label {
   line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.row-filename {
+  margin: 4px 0 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row-filename span {
+  margin-right: 6px;
+  color: var(--faint);
+  font-size: 10.5px;
+  font-weight: 520;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .row-summary {
@@ -1427,6 +1449,42 @@ label {
   color: var(--muted);
   font-size: 13px;
   line-height: 1.45;
+}
+
+.detail-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.detail-meta-grid > div {
+  min-width: 0;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: color-mix(in oklch, var(--panel-soft) 34%, var(--panel));
+  padding: 9px 10px;
+}
+
+.detail-meta-grid span {
+  display: block;
+  color: var(--faint);
+  font-size: 10.5px;
+  font-weight: 520;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.detail-meta-grid strong {
+  display: block;
+  margin-top: 4px;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 520;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .detail-state-line {
@@ -3146,6 +3204,10 @@ textarea:disabled {
 
   .detail-header {
     padding-top: 18px;
+  }
+
+  .detail-meta-grid {
+    grid-template-columns: 1fr;
   }
 
   .detail-header h3 {

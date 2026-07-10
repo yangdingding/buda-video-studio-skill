@@ -13,6 +13,8 @@ import { readJson, slugify, withLock, writeJson } from "../lib/common.mjs";
 const renderBrief = (item, decision) => `# ${item.title}
 
 Ref: ${item.ref}
+ID: ${item.display_id || item.id}
+Filename: ${item.filename || ""}
 Stage: ${item.stage}
 Status: ${item.status}
 
@@ -94,6 +96,8 @@ ${entry.body || ""}`;
 const renderDistribution = (item, decision) => `# Distribution Checklist: ${item.title}
 
 Ref: ${item.ref}
+ID: ${item.display_id || item.id}
+Filename: ${item.filename || ""}
 Approved note: ${decision.comment || "No note."}
 
 ## Channels
