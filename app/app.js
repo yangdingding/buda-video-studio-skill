@@ -583,6 +583,8 @@ const hasChannelExport = (item) => item.stage === "distribution_ready" || hasAny
 
 const hasCoverAsset = (item) => item.source_assets.some((asset) => asset.type === "cover");
 
+const selectedOutputsRequireCover = (item) => selectedOutputsFor(item).some((output) => output.cover_required);
+
 const isDone = (item) => item.status === "done" || item.stage === "published";
 
 const isWorkflowDone = (item) => {
@@ -602,15 +604,16 @@ const workflowQueue = (item) => {
   const decision = currentDecision(item);
   if (isBlocked(item)) return "blocked";
   if (isWorkflowDone(item)) return "done";
-  if (hasRequiredChannelExports(item) && hasCoverAsset(item)) return "distribution_confirm";
-  if (hasChannelExport(item) && !hasCoverAsset(item)) return "cover_generation";
+  const coverReady = hasCoverAsset(item) || decision.workflow_step === "cover_done";
+  const coverRequired = selectedOutputsRequireCover(item);
+  if (hasRequiredChannelExports(item) && (!coverRequired || coverReady)) return "distribution_confirm";
+  if (hasChannelExport(item) && coverRequired && !coverReady) return "cover_generation";
   if (item.stage === "editing" || decision.workflow_step === "editing") return "editing";
   if (item.stage === "idea") {
     if (decision.workflow_step === "assigned_recording" || hasManualProductionPlan(item)) return "recording";
     return decision.workflow_step === "topic_selected" ? "assignment" : "topic_board";
   }
   if (!hasAnySourceAsset(item) && hasManualProductionPlan(item)) return "recording";
-  if (decision.workflow_step === "cover_done") return "editing";
   if (!allRequiredReady(item)) return "waiting_upload";
   if (decision.workflow_step === "material_reviewed") return "edit_output";
   if (decision.action !== "approve") return "material_review";
