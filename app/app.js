@@ -506,14 +506,18 @@ const reasonLabel = (reason) =>
 
 const rowSummaryLabel = (item) => {
   const summary = String(item.summary || "").trim();
+  if (/^(video\s+title|title|subtitle|视频标题|标题|副标题)$/i.test(summary)) return "";
   if (looksLikeTechnicalCaptionSummary(summary)) return "";
   if (summary && !/cloud asset\(s\) found in Google Drive/i.test(summary)) return summary;
   return "";
 };
 
-const rowSummaryHtml = (item) => {
+const rowTitleBlockHtml = (item) => {
   const summary = rowSummaryLabel(item);
-  return summary ? `<p class="row-summary">${escapeHtml(summary)}</p>` : "";
+  const hasReadableSummary = summary && summary !== item.title;
+  return `
+            <div class="row-title">${escapeHtml(hasReadableSummary ? summary : item.title)}</div>
+            ${hasReadableSummary ? `<p class="row-summary">${escapeHtml(item.title)}</p>` : ""}`;
 };
 
 const coverSourceLabel = (item) => {
@@ -2172,9 +2176,8 @@ const renderList = () => {
         <button class="video-row topic-row ${activeId === item.id ? "active" : ""}" data-id="${item.id}" data-stage="${escapeHtml(item.stage)}">
           <div class="video-main">
             ${itemKickerHtml({ ...item, ref: item.ref.replace(/^Video/i, "Topic") })}
-            <div class="row-title">${escapeHtml(item.title)}</div>
+            ${rowTitleBlockHtml(item)}
             ${rowFilenameHtml(item)}
-            ${rowSummaryHtml(item)}
           </div>
           <div class="stage-cell" data-label="来源">
             <span class="stage-text">${escapeHtml(topicSourceLabel(item))}</span>
@@ -2219,9 +2222,8 @@ const renderList = () => {
         <button class="video-row ${rowViewClass} ${activeId === item.id ? "active" : ""}" data-id="${item.id}" data-stage="${escapeHtml(item.stage)}">
           <div class="video-main">
             ${itemKickerHtml(item)}
-            <div class="row-title">${escapeHtml(item.title)}</div>
+            ${rowTitleBlockHtml(item)}
             ${rowFilenameHtml(item)}
-            ${rowSummaryHtml(item)}
           </div>
           <div class="stage-cell" data-label="阶段">
             <span class="stage-text">${escapeHtml(workflowLabel(item))}</span>
