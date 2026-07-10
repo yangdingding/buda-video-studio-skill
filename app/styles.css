@@ -1026,23 +1026,34 @@ label {
 .dashboard-status-top span {
   display: inline-flex;
   align-items: center;
+  min-width: 0;
   min-height: 23px;
   border: 0;
   border-radius: 999px;
   background: color-mix(in oklch, var(--panel) 64%, var(--panel-soft));
   padding: 0 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.dashboard-status-top span:first-child {
+  flex: 1 1 auto;
+}
+
+.dashboard-status-top span:last-child {
+  flex: 0 0 auto;
+}
+
 .dashboard-status-card strong {
-  display: block;
+  display: -webkit-box;
   overflow: hidden;
   color: var(--ink);
   font-size: 15px;
   font-weight: 600;
-  line-height: 1.2;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.24;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .dashboard-status-card p {
@@ -1053,6 +1064,33 @@ label {
   line-height: 1.35;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+.dashboard-status-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.dashboard-status-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 25px;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--panel) 70%, var(--panel-soft));
+  color: var(--muted);
+  padding: 0 9px;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.dashboard-status-badge.risk {
+  color: var(--danger);
+}
+
+.dashboard-status-badge.date {
+  color: var(--faint);
 }
 
 .list-header {

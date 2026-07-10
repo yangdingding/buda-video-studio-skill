@@ -41,7 +41,24 @@ agent, 就不是某个人电脑里的黑盒, 里继续处理
 
 就不再是只跑在某个人电脑里的黑盒, 继续处理`);
 
-assert.equal(reviewSummary, "agent, 就不是某个人电脑里的黑盒, 里继续处理");
+assert.equal(reviewSummary, "就不是某个人电脑里的黑盒");
+
+const structuredReferenceSummary = summarizeVoiceover(`## Video Title
+
+Introducing Agent Permissions: Not Every Agent Should Be Visible to Everyone
+
+## Summary
+
+Demo script notes.`);
+
+assert.equal(structuredReferenceSummary, "Introducing Agent Permissions: Not Every Agent Should Be Visible to Everyone");
+
+const generatedTitle = summarizeVoiceover(
+  "现在写合同、审合同，不用再从零手动整理，直接用 AI 就可以完成。把合同发给 Buda，它会帮你整理重点和修改建议。",
+  { fallbackTitle: "Gerenate word" }
+);
+
+assert.equal(generatedTitle, "用 AI 写合同、审合同");
 
 const item = buildProjectItem({
   project: {

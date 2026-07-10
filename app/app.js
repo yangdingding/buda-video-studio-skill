@@ -1701,9 +1701,24 @@ const isDueThisWeek = (item) => {
   return time <= end.getTime();
 };
 
+const dashboardStatusBadgesHtml = (item, detail) => {
+  const missing = missingRequiredLabels(item);
+  const badges = missing.length
+    ? missing.map((label) => ({ label: `缺 ${label}`, tone: "risk" }))
+    : detail
+      ? [{ label: detail.replace(/^❌\s*/, ""), tone: "muted" }]
+      : [];
+  const dueDate = currentDecision(item).due_date;
+  if (dueDate) badges.push({ label: compactDateLabel(dueDate), tone: "date" });
+  return badges.length
+    ? `<div class="dashboard-status-badges">${badges
+        .map((badge) => `<span class="dashboard-status-badge ${escapeHtml(badge.tone)}">${escapeHtml(badge.label)}</span>`)
+        .join("")}</div>`
+    : "";
+};
+
 const dashboardStatusCardHtml = (item, options = {}) => {
   const queue = workflowQueue(item);
-  const decision = currentDecision(item);
   const missing = missingRequiredLabelText(item);
   const channels = publishedChannelEntries(item).map((entry) => entry.channel).join(" / ");
   const detail =
@@ -1716,20 +1731,17 @@ const dashboardStatusCardHtml = (item, options = {}) => {
           ? `${productionOwner(item)} · ${productionDueDate(item)}`
           : nextStepLabel(item));
   const meta = options.meta || workflowLabel(item);
-  const title = itemTitleDisplay(item, detail);
+  const title = itemTitleDisplay(item);
 
   return `
     <button class="dashboard-status-card" data-dashboard-open="${escapeHtml(item.id)}" type="button">
       <div class="dashboard-status-top">
-        <span>${escapeHtml(item.ref)}</span>
+        <span>${escapeHtml(`${item.ref} · ID ${itemDisplayId(item)}`)}</span>
         <span>${escapeHtml(meta)}</span>
       </div>
       <strong>${escapeHtml(title.primary)}</strong>
-      <p>${escapeHtml(title.secondary)}</p>
-      <div class="dashboard-status-foot">
-        <span>${escapeHtml(detail)}</span>
-        ${decision.due_date ? `<span>${escapeHtml(compactDateLabel(decision.due_date))}</span>` : ""}
-      </div>
+      ${title.secondary ? `<p>${escapeHtml(title.secondary)}</p>` : ""}
+      ${dashboardStatusBadgesHtml(item, detail)}
     </button>`;
 };
 
