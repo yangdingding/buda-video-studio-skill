@@ -1,6 +1,12 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
-import { buildProjectItem, contentTitleFromName, displayIdFromName, summarizeVoiceover } from "../lib/google-drive-shared.mjs";
+import {
+  buildProjectItem,
+  contentTitleFromName,
+  deriveCoverCopy,
+  displayIdFromName,
+  summarizeVoiceover,
+} from "../lib/google-drive-shared.mjs";
 
 assert.equal(contentTitleFromName("Buda-release-video-agent-permission"), "Release video agent permission");
 assert.equal(displayIdFromName("Buda-release-video-agent-permission"), "release-video-agent-permission");
@@ -59,6 +65,24 @@ const generatedTitle = summarizeVoiceover(
 );
 
 assert.equal(generatedTitle, "用 AI 写合同、审合同");
+
+const personalWebsiteTitle = summarizeVoiceover(
+  "还在给 HR 看无聊的简历？现在可以用 AI 生成一个长期可访问的个人网站。",
+  { fallbackTitle: "Personal website" }
+);
+
+assert.equal(personalWebsiteTitle, "还在给 HR 看无聊的简历");
+
+const personalWebsiteCoverCopy = deriveCoverCopy({
+  title: "Personal website",
+  snippet: "还在给 HR 看无聊的简历？",
+  coverText: `如何用 AI
+搭建个人网站
+用AI生成并部署，获得长期可访问链接`,
+});
+
+assert.equal(personalWebsiteCoverCopy.source, "cover_image_ocr");
+assert.equal(personalWebsiteCoverCopy.title, "如何用 AI 搭建个人网站");
 
 const item = buildProjectItem({
   project: {
