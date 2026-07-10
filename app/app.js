@@ -2329,20 +2329,22 @@ const renderDetail = () => {
     groups[key].push(asset);
     return groups;
   }, {});
-	  const missingRequired = missingRequiredChecks(item);
-	  const queue = workflowQueue(item);
-	  const allowManualEditing = queue === "waiting_upload" && canStartEditingWithoutCover(item);
-	  const approveDisabled =
-	    locked || isWorkflowDone(item) || ["recording", "editing"].includes(queue) || (queue === "waiting_upload" && !allowManualEditing);
-	  const workflowText = workflowLabel(item);
-	  const statusText = statusDisplayLabel(item);
+  const missingRequired = missingRequiredChecks(item);
+  const queue = workflowQueue(item);
+  const allowManualEditing = queue === "waiting_upload" && canStartEditingWithoutCover(item);
+  const approveDisabled =
+    locked || isWorkflowDone(item) || ["recording", "editing"].includes(queue) || (queue === "waiting_upload" && !allowManualEditing);
+  const workflowText = workflowLabel(item);
+  const statusText = statusDisplayLabel(item);
+  const drawerTitle = itemTitleDisplay(item);
 
   $("#detailPane").innerHTML = `
     ${onboardingHtml()}
     <div class="drawer-top">
       <div>
-        <span class="drawer-kicker">视频详情</span>
-        <strong>${escapeHtml(`${item.ref} · ID ${itemDisplayId(item)}`)}</strong>
+        <span class="drawer-kicker">${escapeHtml(`视频详情 · ${item.ref} · ID ${itemDisplayId(item)}`)}</span>
+        <strong>${escapeHtml(drawerTitle.primary)}</strong>
+        ${drawerTitle.secondary ? `<small>${escapeHtml(drawerTitle.secondary)}</small>` : ""}
       </div>
       <button class="drawer-close" id="closeDetail" aria-label="关闭详情" title="关闭详情">×</button>
     </div>
