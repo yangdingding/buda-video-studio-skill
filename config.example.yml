@@ -72,7 +72,7 @@ topic_sources:
   # - BUDA_VIDEO_TOPICS_CSV
   # - app/.cache/topics.csv
   # - /agent/选题表/topics.csv
-  # - ~/选题表/topics.csv
+  # Avoid committing personal home-directory or local Drive sync paths here.
   csv_path: ""
 
 video_rules:

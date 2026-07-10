@@ -115,8 +115,10 @@ Never commit:
 - `.env`
 - `.env.local`
 - `app/.cache/`
+- `buda-video-status.json`
 - Google OAuth client JSON files
 - Google OAuth token JSON files
+- Any local Drive sync path or account-specific folder path
 
 Recommended private config location:
 
@@ -155,3 +157,11 @@ find . -maxdepth 4 \( -path "*/app/.cache/*" -o -name "config.local.yml" -o -nam
 ```
 
 The command should print nothing for a clean public release tree.
+
+Also scan tracked text before publishing:
+
+```bash
+git grep -n -I -E '/Users/|Library/CloudStorage|GoogleDrive-|/var/folders|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' -- . ':!README.md'
+```
+
+Only public product/support addresses or placeholder examples should remain.

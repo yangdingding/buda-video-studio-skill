@@ -3,3 +3,7 @@ config.local.yml
 .env
 .env.local
 app/.cache/
+buda-video-status.json
+google-oauth-*.json
+*token*.json
+*secret*.json
