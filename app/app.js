@@ -512,12 +512,60 @@ const rowSummaryLabel = (item) => {
   return "";
 };
 
+const cleanDisplayText = (value) => String(value || "").replace(/\s+/g, " ").trim();
+
+const titleKey = (value) => cleanDisplayText(value).toLowerCase();
+
+const usableDisplayTitle = (value) => {
+  const text = cleanDisplayText(value);
+  if (!text) return "";
+  if (/^(video\s+title|title|subtitle|视频标题|标题|副标题)$/i.test(text)) return "";
+  if (/cloud asset\(s\) found in Google Drive/i.test(text)) return "";
+  if (looksLikeTechnicalCaptionSummary(text)) return "";
+  return text;
+};
+
+const firstDisplayTitle = (...values) => values.map(usableDisplayTitle).find(Boolean) || "";
+
+const secondaryDisplayTitle = (primary, values, fallbackSecondary = "") => {
+  const primaryKey = titleKey(primary);
+  return [...values, fallbackSecondary].map(usableDisplayTitle).find((value) => titleKey(value) !== primaryKey) || "";
+};
+
 const itemTitleDisplay = (item, fallbackSecondary = "") => {
+  const decision = currentDecision(item);
+  const baseTitle = usableDisplayTitle(item.title);
+  const confirmedCoverTitle = firstDisplayTitle(decision.cover_zh_title, decision.cover_title);
+  if (confirmedCoverTitle) {
+    return {
+      primary: confirmedCoverTitle,
+      secondary: secondaryDisplayTitle(
+        confirmedCoverTitle,
+        [decision.cover_zh_subtitle, decision.cover_subtitle, baseTitle],
+        fallbackSecondary
+      ),
+      source: "confirmed_cover",
+    };
+  }
+
+  const coverTitle = firstDisplayTitle(item.cover_copy?.locales?.zh?.title, item.cover_copy?.title);
+  const coverSubtitle = firstDisplayTitle(item.cover_copy?.locales?.zh?.subtitle, item.cover_copy?.subtitle);
+  const coverTitleIsTrusted =
+    coverTitle && (item.cover_copy?.source === "cover_image_ocr" || decision.workflow_step === "cover_done");
+  if (coverTitleIsTrusted) {
+    return {
+      primary: coverTitle,
+      secondary: secondaryDisplayTitle(coverTitle, [coverSubtitle, baseTitle], fallbackSecondary),
+      source: item.cover_copy?.source === "cover_image_ocr" ? "cover_image_ocr" : "confirmed_cover",
+    };
+  }
+
   const summary = rowSummaryLabel(item);
-  const hasReadableSummary = summary && summary !== item.title;
+  const hasReadableSummary = summary && titleKey(summary) !== titleKey(baseTitle);
   return {
-    primary: hasReadableSummary ? summary : item.title,
-    secondary: hasReadableSummary ? item.title : fallbackSecondary,
+    primary: hasReadableSummary ? summary : baseTitle || item.ref,
+    secondary: hasReadableSummary ? secondaryDisplayTitle(summary, [baseTitle], fallbackSecondary) : fallbackSecondary,
+    source: hasReadableSummary ? "script_or_reference" : "project_title",
   };
 };
 
@@ -2375,7 +2423,7 @@ const renderDetail = () => {
           </div>
           <div>
             <span>Title</span>
-            <strong>${escapeHtml(item.title)}</strong>
+            <strong>${escapeHtml(drawerTitle.primary)}</strong>
           </div>
         </div>
 	      </div>
