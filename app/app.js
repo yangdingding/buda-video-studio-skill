@@ -512,12 +512,20 @@ const rowSummaryLabel = (item) => {
   return "";
 };
 
-const rowTitleBlockHtml = (item) => {
+const itemTitleDisplay = (item, fallbackSecondary = "") => {
   const summary = rowSummaryLabel(item);
   const hasReadableSummary = summary && summary !== item.title;
+  return {
+    primary: hasReadableSummary ? summary : item.title,
+    secondary: hasReadableSummary ? item.title : fallbackSecondary,
+  };
+};
+
+const rowTitleBlockHtml = (item) => {
+  const title = itemTitleDisplay(item);
   return `
-            <div class="row-title">${escapeHtml(hasReadableSummary ? summary : item.title)}</div>
-            ${hasReadableSummary ? `<p class="row-summary">${escapeHtml(item.title)}</p>` : ""}`;
+            <div class="row-title">${escapeHtml(title.primary)}</div>
+            ${title.secondary ? `<p class="row-summary">${escapeHtml(title.secondary)}</p>` : ""}`;
 };
 
 const coverSourceLabel = (item) => {
@@ -1628,13 +1636,14 @@ const dashboardItemButtonHtml = (item, options = {}) => {
         : missing.length
           ? `❌ 缺 ${missing.join("、")}`
           : nextStepLabel(item));
+  const title = itemTitleDisplay(item, detail);
 
   return `
     <button class="dashboard-item ${activeId === item.id ? "active" : ""}" data-dashboard-id="${escapeHtml(item.id)}" type="button">
       <div>
         <span class="dashboard-item-kicker">${escapeHtml(`${item.ref} / ID ${itemDisplayId(item)}`)}</span>
-        <strong>${escapeHtml(item.title)}</strong>
-        <small>${escapeHtml(detail)}</small>
+        <strong>${escapeHtml(title.primary)}</strong>
+        <small>${escapeHtml(title.secondary)}</small>
       </div>
       <div class="dashboard-item-meta">
         <span>${escapeHtml(meta)}</span>
@@ -1651,11 +1660,13 @@ const dashboardPublishedHtml = (publishedItems) => {
   return publishedItems
     .map((item) => {
       const entries = publishedChannelEntries(item);
+      const title = itemTitleDisplay(item);
       return `
         <div class="published-dashboard-row">
           <button class="published-title" data-dashboard-open="${escapeHtml(item.id)}" type="button">
             <span>${escapeHtml(`${item.ref} / ID ${itemDisplayId(item)}`)}</span>
-            <strong>${escapeHtml(item.title)}</strong>
+            <strong>${escapeHtml(title.primary)}</strong>
+            ${title.secondary ? `<small>${escapeHtml(title.secondary)}</small>` : ""}
           </button>
           <div class="published-channel-list">
             ${
@@ -1705,10 +1716,7 @@ const dashboardStatusCardHtml = (item, options = {}) => {
           ? `${productionOwner(item)} · ${productionDueDate(item)}`
           : nextStepLabel(item));
   const meta = options.meta || workflowLabel(item);
-  const summaryLabel = rowSummaryLabel(item);
-  const hasReadableSummary = summaryLabel && summaryLabel !== item.title;
-  const primaryTitle = hasReadableSummary ? summaryLabel : item.title;
-  const secondaryTitle = hasReadableSummary ? item.title : detail;
+  const title = itemTitleDisplay(item, detail);
 
   return `
     <button class="dashboard-status-card" data-dashboard-open="${escapeHtml(item.id)}" type="button">
@@ -1716,8 +1724,8 @@ const dashboardStatusCardHtml = (item, options = {}) => {
         <span>${escapeHtml(item.ref)}</span>
         <span>${escapeHtml(meta)}</span>
       </div>
-      <strong>${escapeHtml(primaryTitle)}</strong>
-      <p>${escapeHtml(secondaryTitle)}</p>
+      <strong>${escapeHtml(title.primary)}</strong>
+      <p>${escapeHtml(title.secondary)}</p>
       <div class="dashboard-status-foot">
         <span>${escapeHtml(detail)}</span>
         ${decision.due_date ? `<span>${escapeHtml(compactDateLabel(decision.due_date))}</span>` : ""}

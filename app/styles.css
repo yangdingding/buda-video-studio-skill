@@ -877,7 +877,8 @@ label {
   white-space: nowrap;
 }
 
-.dashboard-item small {
+.dashboard-item small,
+.published-title small {
   display: block;
   margin-top: 4px;
   overflow: hidden;
