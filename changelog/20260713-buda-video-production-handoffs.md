@@ -16,6 +16,8 @@ Author: AI Assistant
 - Made `AI 视频制作中` explicit-only so legacy Drive folders with old scripts or recordings are not pulled into AI production automatically.
 - Clarified the production gates: covers are created during AI video production, while post-production delivery owns SRT extraction, hard subtitles, Shorts cover insertion, and final platform packaging.
 - Added HyperFrames/Remotion project-file evidence so AI production and review details can show source files and optional external preview manifests without treating them as rendered videos.
+- Added `production-manifest.json` parsing for repo, PR, commit, project path, preview URL, and Drive export provenance.
+- Clarified that covers can be generated from the approved storyboard/script during AI production when no real screenshot exists yet, and should be marked as script-derived.
 - Kept rendering, Drive export, and social publication as evidence-based controlled steps.
 
 ## Testing

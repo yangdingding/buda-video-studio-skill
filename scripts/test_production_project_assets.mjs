@@ -28,24 +28,57 @@ const item = buildProjectItem({
     },
     {
       id: "project-asset-2",
-      name: "manifest.json",
-      path: "busabase-intro/HyperFrames/manifest.json",
+      name: "scene-manifest.json",
+      path: "busabase-intro/HyperFrames/scene-manifest.json",
       folder_path: ["HyperFrames"],
       extension: ".json",
       mime_type: "application/json",
     },
+    {
+      id: "production-manifest-1",
+      name: "production-manifest.json",
+      path: "busabase-intro/HyperFrames/production-manifest.json",
+      folder_path: ["HyperFrames"],
+      extension: ".json",
+      mime_type: "application/json",
+      preview_url: "https://r2.example.com/busabase-intro/preview.html",
+    },
   ],
   config: {},
   index: 0,
-  readSnippet: () => "Busabase intro script",
+  readSnippet: (file) =>
+    file.name === "production-manifest.json"
+      ? JSON.stringify({
+          repo: "vikadata/videos",
+          pr: "https://github.com/vikadata/videos/pull/123",
+          commit: "abc123",
+          engine: "hyperframes",
+          projectPath: "videos/busabase-intro",
+          previewUrl: "https://r2.example.com/busabase-intro/index.html",
+          exports: {
+            ai_master: "HyperFrames/busabase-intro.mp4",
+            cover_16x9: "Covers/busabase-intro-cover-en.png",
+          },
+        })
+      : "Busabase intro script",
 });
 
 const projectAssets = item.source_assets.filter((asset) => asset.type === "production_project");
 assert.equal(projectAssets.length, 2);
 assert.deepEqual(
   projectAssets.map((asset) => asset.name).sort(),
-  ["IntroComposition.tsx", "manifest.json"]
+  ["IntroComposition.tsx", "scene-manifest.json"]
 );
+const manifestAssets = item.source_assets.filter((asset) => asset.type === "production_manifest");
+assert.equal(manifestAssets.length, 1);
+assert.equal(manifestAssets[0].preview_url, "https://r2.example.com/busabase-intro/preview.html");
+assert.equal(item.production_manifest.repo, "vikadata/videos");
+assert.equal(item.production_manifest.pr, "https://github.com/vikadata/videos/pull/123");
+assert.equal(item.production_manifest.commit, "abc123");
+assert.equal(item.production_manifest.engine, "hyperframes");
+assert.equal(item.production_manifest.project_path, "videos/busabase-intro");
+assert.equal(item.production_manifest.preview_url, "https://r2.example.com/busabase-intro/index.html");
+assert.equal(item.production_manifest.exports.ai_master, "HyperFrames/busabase-intro.mp4");
 assert.equal(item.rule.evidence.production_project, 2);
 assert.equal(item.required_checks.find((check) => check.key === "draft_video")?.ready, false);
 

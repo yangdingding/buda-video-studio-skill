@@ -142,6 +142,7 @@ const assetLabels = {
   raw_video: "录屏素材",
   draft_video: "AI 视频",
   production_project: "AI 工程文件",
+  production_manifest: "AI 工程 Manifest",
   voiceover: "剧本/脚本",
   script: "剧本/脚本",
   transcript: "字幕文件",
@@ -157,6 +158,7 @@ const evidenceLabels = {
   raw: "录屏素材",
   draft_video: "AI 视频",
   production_project: "AI 工程文件",
+  production_manifest: "AI 工程 Manifest",
   voiceover: "剧本/脚本",
   script: "剧本/脚本",
   transcript: "字幕文件",
@@ -922,8 +924,8 @@ const requiredCheckSummary = (item) =>
     .join(" · ");
 
 const assetTypes = {
-  source: ["voiceover", "script", "transcript", "production_project", "draft_video", "raw_video", "cover_source", "cover"],
-  sourceCore: ["voiceover", "script", "transcript", "production_project", "draft_video", "raw_video", "cover_source"],
+  source: ["voiceover", "script", "transcript", "production_manifest", "production_project", "draft_video", "raw_video", "cover_source", "cover"],
+  sourceCore: ["voiceover", "script", "transcript", "production_manifest", "production_project", "draft_video", "raw_video", "cover_source"],
   exports: ["youtube_export", "shorts_export", "video_account_export", "social_export"],
   cover: ["cover"],
 };
@@ -1025,6 +1027,7 @@ const assetThumbLabel = (asset) => {
   if (asset.type === "video_account_export") return "视频号";
   if (asset.type === "social_export") return "社媒导出";
   if (asset.type === "production_project") return "工程";
+  if (asset.type === "production_manifest") return "Manifest";
   return "视频";
 };
 
@@ -1350,15 +1353,49 @@ const assetReviewHtml = (item, locked) => {
 
 const productionProjectFilesHtml = (item, assetsByType) => {
   const queue = workflowQueue(item);
-  const projectAssets = assetsByType.production_project || [];
-  if (!["assignment", "waiting_upload"].includes(queue) || projectAssets.length === 0) return "";
+  const projectAssets = [...(assetsByType.production_manifest || []), ...(assetsByType.production_project || [])];
+  const manifest = item.production_manifest || {};
+  const manifestRows = [
+    ["Repo", manifest.repo],
+    ["PR", manifest.pr],
+    ["Commit", manifest.commit],
+    ["Engine", manifest.engine],
+    ["Project path", manifest.project_path],
+    ["Preview", manifest.preview_url],
+  ].filter(([, value]) => value);
+  const exports = manifest.exports && typeof manifest.exports === "object" ? Object.entries(manifest.exports).filter(([, value]) => value) : [];
+  if (!["assignment", "waiting_upload"].includes(queue) || (projectAssets.length === 0 && manifestRows.length === 0 && exports.length === 0)) return "";
   return `
     <section class="section compact">
       <div class="section-title">
         <h4>AI 工程文件</h4>
-        <p>HyperFrames/Remotion 源文件或 R2 预览 manifest；它们说明制作进度，但不替代导出的 AI 视频。</p>
+        <p>HyperFrames/Remotion 源文件、PR/commit 或 R2 预览 manifest；它们说明制作进度，但不替代导出的 AI 视频。</p>
       </div>
-      ${assetGroupsHtml({ production_project: projectAssets })}
+      ${
+        manifestRows.length || exports.length
+          ? `<div class="brief-box">
+              ${manifestRows
+                .map(
+                  ([label, value]) => `
+                    <p><strong>${escapeHtml(label)}：</strong>${/^https?:\/\//i.test(String(value)) ? `<a href="${escapeHtml(value)}" target="_blank" rel="noreferrer">${escapeHtml(value)}</a>` : escapeHtml(value)}</p>`
+                )
+                .join("")}
+              ${
+                exports.length
+                  ? `<ul>${exports.map(([label, value]) => `<li>${escapeHtml(label)}：${escapeHtml(value)}</li>`).join("")}</ul>`
+                  : ""
+              }
+            </div>`
+          : ""
+      }
+      ${
+        projectAssets.length
+          ? assetGroupsHtml({
+              production_manifest: assetsByType.production_manifest || [],
+              production_project: assetsByType.production_project || [],
+            })
+          : ""
+      }
     </section>`;
 };
 

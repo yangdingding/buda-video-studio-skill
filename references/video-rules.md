@@ -22,6 +22,7 @@ Each direct child folder under the configured Google Drive root is treated as on
 - Transcript material: `.srt`, `.txt`, or `.vtt` files anywhere inside the project.
 - AI video: video files under folders named `Draft`, `Drafts`, `草稿视频`, `草稿`, `HyperFrames`, `HyperFrame`, `Remotion`, `Preview`, or `预览`, or files whose name/path contains configured draft keywords such as `draft`, `草稿`, `hyperframes`, `remotion`, or `preview`.
 - AI project files: HyperFrames or Remotion source files such as `.html`, `.tsx`, `.ts`, `.js`, `.json`, `package.json`, `remotion.config.*`, or manifest files under `HyperFrames`, `Remotion`, `RemotionStudio`, `Source`, `Project`, `工程`, or `源文件`. These are shown for review but do not count as rendered AI video.
+- Production manifest: `production-manifest.json`, `buda-video-production.json`, or `video-manifest.json` may record `repo`, `pr`, `commit`, `engine`, `projectPath`, `previewUrl`, and exported Drive paths. The manifest is provenance and preview metadata, not completion evidence.
 - Screen recording: video files under folders named `Raw`, `原始视频`, `原视频`, `录屏`, or `Screen Recording`, excluding AI video and channel export files.
 - Cover source/material: `.png`, `.jpg`, or `.jpeg` image files under folders named `成品样片`, `封面素材`, `Cover Source`, or `Cover Sources`.
 - Final cover outputs: `.png`, `.jpg`, or `.jpeg` image files under folders named `Covers` or `封面`.
@@ -60,7 +61,7 @@ The first queues are advanced by local UI decisions only. They do not mutate Goo
 
 The app has two explicit local task actions. Creating a task does not claim that media has rendered or uploaded.
 
-1. `AI 制作任务`: available in `AI 视频制作中`. It records `hyperframes` or `remotion`, writes a handoff under `app/.cache/production/`, and directs the production agent to create the script, AI video, voice, subtitles, and final covers. Cover production belongs to this stage. The handoff invokes the unified `buda-video-delivery` `covers` mode and asks for 16:9 plus 9:16 cover exports when vertical delivery is selected.
+1. `AI 制作任务`: available in `AI 视频制作中`. It records `hyperframes` or `remotion`, writes a handoff under `app/.cache/production/`, and directs the production agent to create the script, AI video, voice, subtitles, and final covers. Cover production belongs to this stage. The handoff invokes the unified `buda-video-delivery` `covers` mode and asks for 16:9 plus 9:16 cover exports when vertical delivery is selected. If no real screenshot exists yet, the cover must be generated from the approved storyboard/script and marked as script-derived instead of waiting for a human recording.
 2. `后期交付任务`: available in `后期剪辑中`. It writes a handoff under `app/.cache/delivery/` and directs the production agent to finish the horizontal master, extract or regenerate SRT, normalize SRT, burn hard subtitles, create Shorts with the matching 9:16 cover, and prepare distribution material through `buda-video-delivery` `publish` mode.
 
 Both task files use repository identifiers and project-relative Drive folders only. The later controlled export step is responsible for writing verified media into Drive.
@@ -69,8 +70,8 @@ Both task files use repository identifiers and project-relative Drive folders on
 
 Automatic progress comes from Drive evidence:
 
-- `AI 视频制作中` moves forward when script/storyboard, AI video, and final cover appear in Drive.
-- `AI 视频制作中` and `待确认 AI 视频` should show any HyperFrames/Remotion project source files and preview manifests that were uploaded to Drive. Optional R2 preview URLs may be represented as `preview_url` metadata, but the app must not upload project files to R2 automatically.
+- `AI 视频制作中` moves forward when script/storyboard, AI video, and final cover appear in Drive. Final cover evidence may be a storyboard/script-driven cover from `buda-video-delivery covers` when no real screenshot exists yet.
+- `AI 视频制作中` and `待确认 AI 视频` should show any HyperFrames/Remotion project source files and production manifests that were uploaded to Drive. Optional R2 preview URLs may be represented as `previewUrl` in a manifest or `preview_url` asset metadata, but the app must not upload project files to R2 automatically.
 - `待确认 AI 视频` appears when the AI video package is complete.
 - `待录制` appears only after a human approves the AI video package.
 - `待进入后期` appears when an approved AI video package and human screen recording are both present.

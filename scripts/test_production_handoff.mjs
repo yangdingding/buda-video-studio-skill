@@ -49,6 +49,8 @@ assert.match(aiHandoff, /\$remotion/);
 assert.match(aiHandoff, /\$buda-video-delivery in covers mode/);
 assert.match(aiHandoff, /Cover production happens in this AI production stage/);
 assert.match(aiHandoff, /matching 9:16 Shorts cover variant/);
+assert.match(aiHandoff, /storyboard\/script-driven cover/);
+assert.match(aiHandoff, /script-derived/);
 assert.match(aiHandoff, /Script\//);
 assert.match(aiHandoff, /Remotion\//);
 assert.match(aiHandoff, /Covers\//);
