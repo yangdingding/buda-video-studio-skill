@@ -21,6 +21,7 @@ Each direct child folder under the configured Google Drive root is treated as on
 - Script material: `.md` or `.txt` files anywhere inside the project.
 - Transcript material: `.srt`, `.txt`, or `.vtt` files anywhere inside the project.
 - AI video: video files under folders named `Draft`, `Drafts`, `草稿视频`, `草稿`, `HyperFrames`, `HyperFrame`, `Remotion`, `Preview`, or `预览`, or files whose name/path contains configured draft keywords such as `draft`, `草稿`, `hyperframes`, `remotion`, or `preview`.
+- AI project files: HyperFrames or Remotion source files such as `.html`, `.tsx`, `.ts`, `.js`, `.json`, `package.json`, `remotion.config.*`, or manifest files under `HyperFrames`, `Remotion`, `RemotionStudio`, `Source`, `Project`, `工程`, or `源文件`. These are shown for review but do not count as rendered AI video.
 - Screen recording: video files under folders named `Raw`, `原始视频`, `原视频`, `录屏`, or `Screen Recording`, excluding AI video and channel export files.
 - Cover source/material: `.png`, `.jpg`, or `.jpeg` image files under folders named `成品样片`, `封面素材`, `Cover Source`, or `Cover Sources`.
 - Final cover outputs: `.png`, `.jpg`, or `.jpeg` image files under folders named `Covers` or `封面`.
@@ -69,6 +70,7 @@ Both task files use repository identifiers and project-relative Drive folders on
 Automatic progress comes from Drive evidence:
 
 - `AI 视频制作中` moves forward when script/storyboard, AI video, and final cover appear in Drive.
+- `AI 视频制作中` and `待确认 AI 视频` should show any HyperFrames/Remotion project source files and preview manifests that were uploaded to Drive. Optional R2 preview URLs may be represented as `preview_url` metadata, but the app must not upload project files to R2 automatically.
 - `待确认 AI 视频` appears when the AI video package is complete.
 - `待录制` appears only after a human approves the AI video package.
 - `待进入后期` appears when an approved AI video package and human screen recording are both present.

@@ -141,6 +141,7 @@ const ruleLabels = {
 const assetLabels = {
   raw_video: "录屏素材",
   draft_video: "AI 视频",
+  production_project: "AI 工程文件",
   voiceover: "剧本/脚本",
   script: "剧本/脚本",
   transcript: "字幕文件",
@@ -155,6 +156,7 @@ const assetLabels = {
 const evidenceLabels = {
   raw: "录屏素材",
   draft_video: "AI 视频",
+  production_project: "AI 工程文件",
   voiceover: "剧本/脚本",
   script: "剧本/脚本",
   transcript: "字幕文件",
@@ -920,8 +922,8 @@ const requiredCheckSummary = (item) =>
     .join(" · ");
 
 const assetTypes = {
-  source: ["voiceover", "script", "transcript", "draft_video", "raw_video", "cover_source", "cover"],
-  sourceCore: ["voiceover", "script", "transcript", "draft_video", "raw_video", "cover_source"],
+  source: ["voiceover", "script", "transcript", "production_project", "draft_video", "raw_video", "cover_source", "cover"],
+  sourceCore: ["voiceover", "script", "transcript", "production_project", "draft_video", "raw_video", "cover_source"],
   exports: ["youtube_export", "shorts_export", "video_account_export", "social_export"],
   cover: ["cover"],
 };
@@ -989,9 +991,11 @@ const assetAccountLabel = (asset) => {
   return "";
 };
 
-const canPreviewAsset = (asset) => Boolean(asset.drive_file_id);
+const canPreviewAsset = (asset) => Boolean(asset.preview_url || asset.drive_file_id);
 
 const drivePreviewUrl = (fileId) => `https://drive.google.com/file/d/${encodeURIComponent(fileId)}/preview`;
+
+const assetPreviewUrl = (asset) => asset.preview_url || drivePreviewUrl(asset.drive_file_id);
 
 const assetOpenUrl = (asset) => asset.folder_url || asset.absolute_path || "";
 
@@ -1020,6 +1024,7 @@ const assetThumbLabel = (asset) => {
   if (asset.type === "shorts_export") return "Shorts";
   if (asset.type === "video_account_export") return "视频号";
   if (asset.type === "social_export") return "社媒导出";
+  if (asset.type === "production_project") return "工程";
   return "视频";
 };
 
@@ -1042,7 +1047,7 @@ const assetThumbnailHtml = (asset, { showThumbnails = false, coverThumbnailFileI
     ? `this.onerror=null; this.src='${escapeHtml(fallbackUrl)}';`
     : "this.remove()";
   return `
-    <button type="button" class="${assetThumbClass(asset)}" ${canPreviewAsset(asset) ? `data-preview-file="${escapeHtml(asset.drive_file_id)}" data-preview-title="${escapeHtml(asset.name)}"` : ""} aria-label="预览 ${escapeHtml(asset.name)}" title="预览 ${escapeHtml(asset.name)}">
+    <button type="button" class="${assetThumbClass(asset)}" ${canPreviewAsset(asset) ? `data-preview-file="${escapeHtml(asset.preview_url || asset.drive_file_id)}" data-preview-title="${escapeHtml(asset.name)}"` : ""} aria-label="预览 ${escapeHtml(asset.name)}" title="预览 ${escapeHtml(asset.name)}">
       ${thumbnailUrl ? `<img src="${escapeHtml(thumbnailUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="${imageError}" />` : ""}
       <span>${escapeHtml(fallback)}</span>
     </button>`;
@@ -1055,6 +1060,23 @@ const openFilePreview = (fileId, title) => {
   if (!preview || !frame || !titleNode || !fileId) return;
   titleNode.textContent = title || "文件预览";
   frame.src = drivePreviewUrl(fileId);
+  preview.hidden = false;
+};
+
+const openAssetPreview = (assetRef, title) => {
+  const asset = items()
+    .flatMap((item) => item.source_assets || [])
+    .find((candidate) => candidate.drive_file_id === assetRef || candidate.preview_url === assetRef);
+  if (!asset) {
+    openFilePreview(assetRef, title);
+    return;
+  }
+  const preview = $("#videoPreview");
+  const frame = $("#videoPreviewFrame");
+  const titleNode = $("#videoPreviewTitle");
+  if (!preview || !frame || !titleNode) return;
+  titleNode.textContent = title || asset.name || "文件预览";
+  frame.src = assetPreviewUrl(asset);
   preview.hidden = false;
 };
 
@@ -1326,6 +1348,20 @@ const assetReviewHtml = (item, locked) => {
     </section>`;
 };
 
+const productionProjectFilesHtml = (item, assetsByType) => {
+  const queue = workflowQueue(item);
+  const projectAssets = assetsByType.production_project || [];
+  if (!["assignment", "waiting_upload"].includes(queue) || projectAssets.length === 0) return "";
+  return `
+    <section class="section compact">
+      <div class="section-title">
+        <h4>AI 工程文件</h4>
+        <p>HyperFrames/Remotion 源文件或 R2 预览 manifest；它们说明制作进度，但不替代导出的 AI 视频。</p>
+      </div>
+      ${assetGroupsHtml({ production_project: projectAssets })}
+    </section>`;
+};
+
 const assetMoreDetailsHtml = (asset) => {
   const rows = [
     ["文件路径", asset.path],
@@ -1375,7 +1411,7 @@ const assetGroupsHtml = (assetsByType, options = {}) => `
                           <div class="asset-actions">
                             ${
                               canPreviewAsset(asset)
-                                ? `<button type="button" class="asset-action" data-preview-file="${escapeHtml(asset.drive_file_id)}" data-preview-title="${escapeHtml(asset.name)}">预览</button>`
+                                ? `<button type="button" class="asset-action" data-preview-file="${escapeHtml(asset.preview_url || asset.drive_file_id)}" data-preview-title="${escapeHtml(asset.name)}">预览</button>`
                                 : ""
                             }
                             <a class="asset-action" href="${escapeHtml(assetOpenUrl(asset))}" target="_blank" rel="noreferrer" title="${escapeHtml(asset.folder_url ? "打开所在 Google Drive 文件夹" : "打开 Google Drive 文件")}">云端打开</a>
@@ -1670,6 +1706,7 @@ const detailBodyHtml = (item, assetsByType, selectedOutputs, decision, locked) =
       ${topicBriefHtml(item)}
       ${scriptSection}
       ${productionMetaHtml(item, locked)}
+      ${productionProjectFilesHtml(item, assetsByType)}
       ${missingFocusHtml(item)}
       ${archivedAssetsHtml(item, sourceAssets, { defaultOpen: true })}
       ${queueGuideHtml("AI 视频制作", "HyperFrames/Remotion 根据剧本生成视频，渲染后导出到 Google Drive。", [
@@ -1690,6 +1727,7 @@ const detailBodyHtml = (item, assetsByType, selectedOutputs, decision, locked) =
     waiting_upload: `
       ${scriptSection}
       ${requiredChecksHtml(item)}
+      ${productionProjectFilesHtml(item, assetsByType)}
       ${assetsHtml(item, sourceAssets)}
       ${assetReviewHtml(item, locked)}`,
     material_review: `
@@ -2695,7 +2733,7 @@ const renderDetail = () => {
   });
   document.querySelectorAll("[data-preview-file]").forEach((button) => {
     button.addEventListener("click", () => {
-      openFilePreview(button.dataset.previewFile, button.dataset.previewTitle);
+      openAssetPreview(button.dataset.previewFile, button.dataset.previewTitle);
     });
   });
   document.querySelectorAll("[data-archived-assets]").forEach((details) => {

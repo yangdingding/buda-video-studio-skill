@@ -48,3 +48,5 @@ Execution handoffs are local, reviewable Markdown files:
 
 - `app/.cache/production/<video>.md`: script, source evidence, selected engine, required AI package, and `buda-video-delivery covers` instructions.
 - `app/.cache/delivery/<video>.md`: post-production inputs, channel contract, Shorts policy, and `buda-video-delivery publish` instructions.
+
+`source_assets` may include `production_project` items for HyperFrames/Remotion source files or preview manifests. These assets can include a `preview_url` when a separate R2 or static preview exists; Google Drive remains the default source of truth.

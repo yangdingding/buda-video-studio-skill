@@ -79,6 +79,24 @@ video_library:
     - "Twitter"
     - "X"
     - "X Twitter"
+  production_project_folder_names:
+    - "HyperFrames"
+    - "HyperFrame"
+    - "Remotion"
+    - "RemotionStudio"
+    - "Remotion Studio"
+    - "Source"
+    - "Project"
+    - "工程"
+    - "源文件"
+  production_project_file_keywords:
+    - "hyperframe"
+    - "hyperframes"
+    - "remotion"
+    - "remotionstudio"
+    - "composition"
+    - "timeline"
+    - "manifest"
 
 topic_sources:
   enabled: true

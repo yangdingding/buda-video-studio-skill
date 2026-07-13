@@ -15,6 +15,7 @@ Author: AI Assistant
 - Ordered AI review before recording and removed the legacy separate cover-production queue.
 - Made `AI 视频制作中` explicit-only so legacy Drive folders with old scripts or recordings are not pulled into AI production automatically.
 - Clarified the production gates: covers are created during AI video production, while post-production delivery owns SRT extraction, hard subtitles, Shorts cover insertion, and final platform packaging.
+- Added HyperFrames/Remotion project-file evidence so AI production and review details can show source files and optional external preview manifests without treating them as rendered videos.
 - Kept rendering, Drive export, and social publication as evidence-based controlled steps.
 
 ## Testing
