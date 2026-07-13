@@ -117,4 +117,72 @@ assert.equal(item.summary, "你的 Agent 能多人一起用吗");
 assert.equal(item.display_id, "multi-person-collaboration");
 assert.equal(item.filename, "use-case-multi-person-collaboration");
 assert.equal(item.title, "Multi person collaboration");
+
+const draftReadyItem = buildProjectItem({
+  project: {
+    id: "project-draft",
+    name: "Buda-release-video-agent-permission",
+    path: "Buda-release-video-agent-permission",
+  },
+  index: 1,
+  config: {},
+  files: [
+    {
+      id: "script",
+      name: "release-script.md",
+      path: "Buda-release-video-agent-permission/Raw/release-script.md",
+      extension: ".md",
+    },
+    {
+      id: "draft",
+      name: "release-draft.mp4",
+      path: "Buda-release-video-agent-permission/Draft/release-draft.mp4",
+      folder_path: ["Buda-release-video-agent-permission", "Draft"],
+      extension: ".mp4",
+    },
+  ],
+  readSnippet: () => "Release video agent permission script.",
+});
+
+assert.equal(draftReadyItem.stage, "script_ready");
+assert.equal(draftReadyItem.rule.id, "draft_video_ready_for_recording");
+assert.equal(draftReadyItem.required_checks.find((check) => check.key === "draft_video")?.ready, true);
+assert.equal(draftReadyItem.required_checks.find((check) => check.key === "raw_video")?.ready, false);
+
+const overlayReadyItem = buildProjectItem({
+  project: {
+    id: "project-overlay",
+    name: "Buda-release-video-agent-permission",
+    path: "Buda-release-video-agent-permission",
+  },
+  index: 2,
+  config: {},
+  files: [
+    {
+      id: "script",
+      name: "release-script.md",
+      path: "Buda-release-video-agent-permission/Raw/release-script.md",
+      extension: ".md",
+    },
+    {
+      id: "draft",
+      name: "release-draft.mp4",
+      path: "Buda-release-video-agent-permission/Draft/release-draft.mp4",
+      folder_path: ["Buda-release-video-agent-permission", "Draft"],
+      extension: ".mp4",
+    },
+    {
+      id: "recording",
+      name: "screen-recording-release.mp4",
+      path: "Buda-release-video-agent-permission/Raw/screen-recording-release.mp4",
+      folder_path: ["Buda-release-video-agent-permission", "Raw"],
+      extension: ".mp4",
+    },
+  ],
+  readSnippet: () => "Release video agent permission script.",
+});
+
+assert.equal(overlayReadyItem.stage, "ready_for_edit");
+assert.equal(overlayReadyItem.rule.id, "required_production_items_ready");
+assert.equal(overlayReadyItem.required_checks.map((check) => `${check.key}:${check.ready}`).join(","), "voiceover:true,draft_video:true,raw_video:true");
 console.log("Caption summary OK.");

@@ -26,6 +26,26 @@ video_library:
     - "Raw"
     - "原始视频"
     - "原视频"
+    - "录屏"
+    - "Screen Recording"
+    - "Screen Recordings"
+  draft_video_folder_names:
+    - "Draft"
+    - "Drafts"
+    - "草稿视频"
+    - "草稿"
+    - "HyperFrames"
+    - "HyperFrame"
+    - "Preview"
+    - "预览"
+  draft_video_file_keywords:
+    - "draft"
+    - "草稿"
+    - "hyperframe"
+    - "hyperframes"
+    - "preview"
+    - "rough cut"
+    - "roughcut"
   cover_folder_names:
     - "Covers"
     - "封面"
@@ -76,11 +96,12 @@ topic_sources:
   csv_path: ""
 
 video_rules:
-  # Required production checks: voiceover markdown/subtitle, PNG/JPG cover source/material,
-  # and raw video. A final cover under Covers also satisfies the cover-material check.
+  # Required production checks: script/subtitle, HyperFrames draft video with text+voice,
+  # and the final human screen recording. Covers are handled after export.
   distribution_ready_requires_export: true
   ready_for_edit_requires_voiceover: true
-  ready_for_edit_requires_cover: true
+  ready_for_edit_requires_draft_video: true
+  ready_for_edit_requires_cover: false
   ready_for_edit_requires_raw: true
   ready_for_edit_accepts_script: true
   ready_for_edit_accepts_transcript: true

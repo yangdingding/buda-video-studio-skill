@@ -2,11 +2,11 @@ const filters = [
   ["dashboard", "总览"],
   ["all", "全部"],
   ["topic_board", "选题表"],
-  ["assignment", "待分配录制"],
+  ["assignment", "待分配脚本/草稿"],
   ["recording", "待录制"],
-  ["waiting_upload", "待补齐素材"],
-  ["material_review", "待进入后期"],
-  ["editing", "剪辑中"],
+  ["waiting_upload", "待补脚本/草稿"],
+  ["material_review", "待覆盖导出"],
+  ["editing", "覆盖导出中"],
   ["cover_generation", "待制作封面"],
   ["distribution_confirm", "待确认分发"],
   ["done", "已完成"],
@@ -130,17 +130,19 @@ const navigateTo = (next = {}, { replace = false } = {}) => {
 const ruleLabels = {
   channel_export_found: "已有渠道导出",
   export_found_missing_required_items: "有导出但必要项不齐",
-  raw_plus_direction: "原始视频 + 口播稿",
-  raw_without_direction: "有原片，缺方向",
-  direction_without_raw: "有口播稿，缺原始视频",
+  raw_plus_direction: "录屏 + 脚本",
+  raw_without_direction: "有录屏，缺脚本",
+  direction_without_raw: "有脚本，缺录屏",
+  draft_video_ready_for_recording: "草稿可录屏",
   cover_without_source: "有封面，缺源素材",
   no_source_material: "缺源素材",
 };
 
 const assetLabels = {
-  raw_video: "原片",
-  voiceover: "口播稿",
-  script: "口播稿",
+  raw_video: "录屏素材",
+  draft_video: "草稿视频",
+  voiceover: "脚本/字幕",
+  script: "脚本",
   transcript: "字幕文件",
   cover_source: "封面素材",
   cover: "最终封面",
@@ -151,9 +153,10 @@ const assetLabels = {
 };
 
 const evidenceLabels = {
-  raw: "原片",
-  voiceover: "口播稿",
-  script: "口播稿",
+  raw: "录屏素材",
+  draft_video: "草稿视频",
+  voiceover: "脚本/字幕",
+  script: "脚本",
   transcript: "字幕文件",
   cover_source: "封面素材",
   cover: "最终封面",
@@ -298,10 +301,10 @@ const channelRequirementLabel = (item) => {
 const stageLabel = (stage) =>
   ({
     idea: "选题",
-    script_ready: "待补素材",
-    assets_ready: "待补素材",
-    ready_for_edit: "后期就绪",
-    editing: "剪辑中",
+    script_ready: "待录屏",
+    assets_ready: "待补脚本/草稿",
+    ready_for_edit: "可覆盖导出",
+    editing: "覆盖导出中",
     cover_review: "封面审核",
     render_ready: "可输出",
     distribution_ready: "待分发",
@@ -394,7 +397,7 @@ const topicHintLabel = (item) => {
   if (decision.action === "revise") return "补充角度";
   if (decision.action === "block") return "暂缓";
   if (decision.action === "no_action") return "跳过";
-  if (decision.workflow_step === "topic_selected") return "可分配录制";
+  if (decision.workflow_step === "topic_selected") return "可分配脚本/草稿";
   return "确认是否要拍";
 };
 
@@ -422,12 +425,13 @@ const assetOwnerName = (asset) =>
 
 const inferredProductionOwner = (item) => {
   const priority = {
-    raw_video: 0,
-    voiceover: 1,
-    script: 2,
-    cover_source: 3,
-    cover: 4,
-    transcript: 4,
+    voiceover: 0,
+    script: 1,
+    transcript: 2,
+    draft_video: 3,
+    raw_video: 4,
+    cover_source: 5,
+    cover: 6,
   };
   return [...(item.source_assets || [])]
     .sort((a, b) => (priority[a.type] ?? 99) - (priority[b.type] ?? 99))
@@ -446,7 +450,8 @@ const recordingStatusLabel = (item) => {
   const decision = currentDecision(item);
   const saved = decision.recording_status || item.recording_status || "";
   if (saved && saved !== "未分配") return saved;
-  if (hasReadyCheck(item, "raw_video") || hasReadyCheck(item, "voiceover")) return "已上传";
+  if (hasReadyCheck(item, "raw_video")) return "已上传";
+  if (hasReadyCheck(item, "voiceover") && hasReadyCheck(item, "draft_video")) return "待录屏";
   if (decision.workflow_step === "assigned_recording" || productionOwner(item) !== "未分配" || productionDueDate(item)) return "已分配";
   return "未分配";
 };
@@ -461,10 +466,11 @@ const hasAnySourceAsset = (item) => (item.source_assets || []).length > 0;
 const riskLabel = (risk) =>
   ({
     cover_copy: "需封面文案",
-    missing_voiceover: "缺口播稿",
+    missing_voiceover: "缺脚本/字幕",
+    missing_draft_video: "缺草稿视频",
     missing_cover_source: "缺封面素材",
     missing_cover: "缺最终封面",
-    missing_raw_video: "缺原始视频",
+    missing_raw_video: "缺录屏素材",
   })[risk] || risk;
 
 const actionLabel = (action) =>
@@ -494,14 +500,18 @@ const reasonLabel = (reason) =>
       "所选渠道导出已齐，还缺 Covers 最终封面。",
     "Cloud Drive has partial channel exports; wait for YouTube CN/EN and video account outputs. Shorts is optional.":
       "已有部分渠道导出，还要等所选渠道产出。",
-    "Script or transcript exists online; confirm whether footage is needed.": "已找到口播稿，需要确认是否还缺原始视频。",
-    "Raw footage exists online, but script/transcript material was not found.": "已找到原始视频，但还缺口播稿。",
-    "Online Google Drive has raw footage and script/transcript material.": "原始视频和口播稿已齐，可以进入后期。",
-    "Online Google Drive has raw video, voiceover/script, and cover material.": "口播稿、封面素材、原始视频都已就绪。",
-    "Some required production items are missing.": "必要素材未齐，需要补充口播稿、封面素材或原始视频。",
+    "Script or transcript exists online; confirm whether footage is needed.": "已找到脚本，需要确认是否还缺草稿视频或录屏。",
+    "Raw footage exists online, but script/transcript material was not found.": "已找到录屏素材，但还缺脚本/字幕。",
+    "Online Google Drive has raw footage and script/transcript material.": "录屏素材和脚本已齐，可以进入覆盖导出。",
+    "Online Google Drive has raw video, voiceover/script, and cover material.": "脚本、草稿视频和录屏素材都已就绪。",
+    "Online Google Drive has script, draft video, and human screen recording ready for overlay export.":
+      "脚本、草稿视频和录屏素材都已就绪，可以进入覆盖导出。",
+    "Script and draft video are ready; human screen recording is the final recording step.":
+      "脚本和草稿视频已就绪，下一步才是人类跟着草稿录屏。",
+    "Some required production items are missing.": "必要项未齐，需要补充脚本/字幕、草稿视频或录屏素材。",
     "Project folder needs source material or direction.": "项目文件夹还缺素材或选题方向。",
     "Topic captured from the agent topic sheet.": "来自选题表，等待确认是否进入录制。",
-    "Cover assets exist, but source footage/script was not found.": "已有封面素材，但缺原始视频或口播稿。",
+    "Cover assets exist, but source footage/script was not found.": "已有封面素材，但缺脚本、草稿视频或录屏素材。",
   })[reason] || reason;
 
 const rowSummaryLabel = (item) => {
@@ -580,8 +590,8 @@ const coverSourceLabel = (item) => {
   const source = item.cover_copy.source;
   if (source === "cover_image_ocr") return "标题和副标题来自最终封面文字识别，可继续人工修改。";
   if (hasCoverAsset(item)) return "已找到最终封面，暂未识别出封面文字；可先点封面预览确认。";
-  if (source === "voiceover_markdown") return "标题和副标题根据口播稿初步提炼，可继续人工修改。";
-  if (source === "project_folder_name") return "当前未读取到口播稿正文，先根据项目名生成候选。";
+  if (source === "voiceover_markdown") return "标题和副标题根据脚本初步提炼，可继续人工修改。";
+  if (source === "project_folder_name") return "当前未读取到脚本正文，先根据项目名生成候选。";
   return "标题默认取项目文件夹名，副标题默认留空；下面是可选方向。";
 };
 
@@ -609,15 +619,16 @@ const rowFilenameHtml = (item) => {
 
 const itemAssetCount = (item, type) => item.source_assets.filter((asset) => asset.type === type).length;
 
-const requiredAssetKeys = ["raw_video", "cover_source", "voiceover"];
+const requiredAssetKeys = ["voiceover", "draft_video", "raw_video"];
 
 const missingCheckPriority = {
-  raw_video: 0,
-  cover_source: 1,
-  voiceover: 2,
+  voiceover: 0,
+  draft_video: 1,
+  raw_video: 2,
+  cover_source: 3,
 };
 
-const assetReviewLabel = (check) => (check.key === "raw_video" ? "原始视频" : check.label);
+const assetReviewLabel = (check) => (check.key === "raw_video" ? "录屏素材" : check.label);
 
 const assetReviewOverrides = (item) => {
   const value = currentDecision(item).asset_overrides;
@@ -661,8 +672,11 @@ const allRequiredReady = (item) => requiredChecks(item).length > 0 && requiredCh
 
 const canStartEditingWithoutCover = (item) => {
   const missing = missingRequiredKeys(item);
-  return missing.length === 1 && missing[0] === "cover_source" && hasReadyCheck(item, "voiceover") && hasReadyCheck(item, "raw_video");
+  return missing.length === 0 && hasReadyCheck(item, "voiceover") && hasReadyCheck(item, "draft_video") && hasReadyCheck(item, "raw_video");
 };
+
+const readyForHumanRecording = (item) =>
+  hasReadyCheck(item, "voiceover") && hasReadyCheck(item, "draft_video") && !hasReadyCheck(item, "raw_video");
 
 const channelEvidenceCount = (item, key) => Number(item.rule?.evidence?.[key] || 0) || itemAssetCount(item, key);
 
@@ -752,10 +766,11 @@ const workflowQueue = (item) => {
   if (hasChannelExport(item) && coverRequired && !coverReady) return "cover_generation";
   if (item.stage === "editing" || decision.workflow_step === "editing") return "editing";
   if (item.stage === "idea") {
-    if (decision.workflow_step === "assigned_recording" || hasManualProductionPlan(item)) return "recording";
+    if (decision.workflow_step === "assigned_recording" || hasManualProductionPlan(item)) return readyForHumanRecording(item) ? "recording" : "waiting_upload";
     return decision.workflow_step === "topic_selected" ? "assignment" : "topic_board";
   }
-  if (!hasAnySourceAsset(item) && hasManualProductionPlan(item)) return "recording";
+  if (readyForHumanRecording(item)) return "recording";
+  if (!hasAnySourceAsset(item) && hasManualProductionPlan(item)) return "waiting_upload";
   if (!allRequiredReady(item)) return "waiting_upload";
   if (decision.workflow_step === "material_reviewed") return "edit_output";
   if (decision.action !== "approve") return "material_review";
@@ -765,12 +780,12 @@ const workflowQueue = (item) => {
 const workflowLabel = (item) =>
   ({
     topic_board: "选题表",
-    assignment: "待分配录制",
+    assignment: "待分配脚本/草稿",
     recording: "待录制",
-    waiting_upload: "待补齐素材",
-    material_review: "待进入后期",
-    edit_output: "待进入后期",
-    editing: "剪辑中",
+    waiting_upload: "待补脚本/草稿",
+    material_review: "待覆盖导出",
+    edit_output: "待覆盖导出",
+    editing: "覆盖导出中",
     cover_generation: "待制作封面",
     distribution_confirm: "待确认分发",
     done: "已完成",
@@ -781,16 +796,16 @@ const nextStepLabel = (item) => {
   const queue = workflowQueue(item);
   if (queue === "waiting_upload") {
     const missingText = missingRequiredLabelText(item);
-    return missingText ? `等待录制人补齐${missingText}` : "素材已齐，可以进入后期确认";
+    return missingText ? `等待补齐${missingText}` : "脚本、草稿和录屏都已齐，可以确认覆盖导出";
   }
   return ({
-    topic_board: "确认选题是否要进入录制计划",
-    assignment: "分配录制人和交付时间",
-    recording: "等待录制人完成录制并上传素材",
-    material_review: "确认素材质量并交给后期",
-    edit_output: "交给后期开始剪辑",
-    editing: "等待后期导出各渠道视频",
-    cover_generation: "根据口播稿调用封面 skill 制作封面",
+    topic_board: "确认选题是否要进入脚本/草稿计划",
+    assignment: "分配脚本/草稿负责人和交付时间",
+    recording: "脚本和草稿已就绪，等待人类跟着草稿录屏",
+    material_review: "确认脚本、草稿和录屏后交给覆盖导出",
+    edit_output: "交给后期把录屏盖到草稿视频上并导出",
+    editing: "等待覆盖导出的各渠道视频",
+    cover_generation: "根据脚本调用封面 skill 制作封面",
     distribution_confirm: "Kelly 和 Kelvin 都确认完成状态",
     done: "流程已完成",
     blocked: "先处理阻塞原因",
@@ -800,12 +815,12 @@ const nextStepLabel = (item) => {
 const detailTitle = (item) =>
   ({
     topic_board: "选题方向确认",
-    assignment: "录制分配",
+    assignment: "脚本/草稿分配",
     recording: "等待录制",
-    waiting_upload: "素材补齐",
-    material_review: "进入后期确认",
-    edit_output: "进入后期确认",
-    editing: "剪辑中",
+    waiting_upload: "脚本/草稿补齐",
+    material_review: "覆盖导出确认",
+    edit_output: "覆盖导出确认",
+    editing: "覆盖导出中",
     cover_generation: "封面制作",
     distribution_confirm: "双人完成确认",
     done: "已完成",
@@ -814,14 +829,14 @@ const detailTitle = (item) =>
 
 const detailDescription = (item) =>
   ({
-    topic_board: "先判断这个方向是否值得拍，再进入录制分配。",
-    assignment: "确认录制人、交付时间和录制注意事项。",
-    recording: "录制已分配，等待素材上传到 Google Drive。",
-    waiting_upload: "等待口播稿、原始视频和封面素材补齐。",
-    material_review: "素材已齐，确认质量后交给后期。",
-    edit_output: "素材已确认，准备交给后期开始剪辑。",
-    editing: "后期正在剪辑，等所选渠道的导出视频出现。",
-    cover_generation: "剪辑输出已出现，还需要补齐 Covers 里的最终封面。",
+    topic_board: "先判断这个方向是否值得拍，再进入脚本/草稿分配。",
+    assignment: "确认脚本/草稿负责人、交付时间和录屏注意事项。",
+    recording: "脚本和草稿视频已经就绪；录制是最后一个人类环节。",
+    waiting_upload: "等待脚本/字幕、HyperFrames 草稿视频或录屏素材补齐。",
+    material_review: "脚本、草稿和录屏已齐，确认质量后交给覆盖导出。",
+    edit_output: "内容已确认，准备把录屏覆盖到草稿视频并导出。",
+    editing: "正在覆盖导出，等所选渠道的视频文件出现。",
+    cover_generation: "导出视频已出现，还需要补齐 Covers 里的最终封面。",
     distribution_confirm: "Kelly 和 Kelvin 都核对同一条完成状态；两个人都确认后才进入已完成。",
     done: "这条视频流程已完成。",
     blocked: "先处理阻塞原因。",
@@ -829,14 +844,14 @@ const detailDescription = (item) =>
 
 const approveButtonLabel = (item) => {
   const queue = workflowQueue(item);
-  if (queue === "waiting_upload" && canStartEditingWithoutCover(item)) return "先开始剪辑";
+  if (queue === "waiting_upload" && canStartEditingWithoutCover(item)) return "先开始覆盖导出";
   return ({
     topic_board: "确定选题",
-    assignment: "已分配录制",
-    recording: "等待上传",
-    waiting_upload: "素材未齐",
-    material_review: "进入后期",
-    edit_output: "开始剪辑",
+    assignment: "已分配脚本/草稿",
+    recording: "等待录屏",
+    waiting_upload: "必要项未齐",
+    material_review: "进入覆盖导出",
+    edit_output: "开始覆盖导出",
     editing: "等待导出",
     cover_generation: "封面已完成",
     distribution_confirm: "确认分发",
@@ -900,8 +915,8 @@ const requiredCheckSummary = (item) =>
     .join(" · ");
 
 const assetTypes = {
-  source: ["raw_video", "voiceover", "script", "transcript", "cover_source", "cover"],
-  sourceCore: ["raw_video", "voiceover", "script", "transcript", "cover_source"],
+  source: ["voiceover", "script", "transcript", "draft_video", "raw_video", "cover_source", "cover"],
+  sourceCore: ["voiceover", "script", "transcript", "draft_video", "raw_video", "cover_source"],
   exports: ["youtube_export", "shorts_export", "video_account_export", "social_export"],
   cover: ["cover"],
 };
@@ -981,7 +996,16 @@ const assetDownloadUrl = (asset) =>
 const driveThumbnailUrl = (fileId) =>
   fileId ? `/api/thumbnail/${encodeURIComponent(fileId)}` : "";
 
-const visualAssetTypes = new Set(["raw_video", "youtube_export", "shorts_export", "video_account_export", "social_export", "cover", "cover_source"]);
+const visualAssetTypes = new Set([
+  "draft_video",
+  "raw_video",
+  "youtube_export",
+  "shorts_export",
+  "video_account_export",
+  "social_export",
+  "cover",
+  "cover_source",
+]);
 
 const assetThumbnailUrl = (asset) => asset.thumbnail_url || driveThumbnailUrl(asset.drive_file_id);
 
@@ -1070,7 +1094,7 @@ const productionMetaHtml = (item, locked) => {
     <section class="section compact">
       <div class="section-title">
         <h4>生产信息</h4>
-        <p>${queue === "topic_board" ? "先确认选题，再进入录制分配。" : "记录负责人、交付时间和录制进度。"}</p>
+        <p>${queue === "topic_board" ? "先确认选题，再进入脚本和草稿生产。" : "记录负责人、交付时间和最后录屏进度。"}</p>
       </div>
       <div class="production-form">
         <label>
@@ -1090,10 +1114,30 @@ const productionMetaHtml = (item, locked) => {
         <label>
           <span>录制状态</span>
           <select id="recordingStatus" ${locked ? "disabled" : ""}>
-            ${["未分配", "已分配", "录制中", "已上传"].map((value) => `<option value="${escapeHtml(value)}" ${value === recordingStatus ? "selected" : ""}>${escapeHtml(value)}</option>`).join("")}
+            ${["未分配", "已分配", "待草稿", "待录屏", "录制中", "已上传"].map((value) => `<option value="${escapeHtml(value)}" ${value === recordingStatus ? "selected" : ""}>${escapeHtml(value)}</option>`).join("")}
           </select>
         </label>
       </div>
+    </section>`;
+};
+
+const scriptPreviewText = (item) => {
+  const body = String(item.body || "").trim();
+  if (body) return body.length > 8000 ? `${body.slice(0, 8000).trim()}\n\n...` : body;
+  const summary = String(item.summary || "").trim();
+  return summary && !/cloud asset\(s\) found in Google Drive/i.test(summary) ? summary : "";
+};
+
+const scriptPreviewHtml = (item) => {
+  const text = scriptPreviewText(item);
+  if (!text) return "";
+  return `
+    <section class="section script-preview-section">
+      <div class="section-title">
+        <h4>脚本</h4>
+        <p>录屏前跟着草稿视频和这份脚本走；这里仅读取 Google Drive 内容。</p>
+      </div>
+      <pre class="script-preview-text">${escapeHtml(text)}</pre>
     </section>`;
 };
 
@@ -1104,16 +1148,16 @@ const recordingBriefHtml = (item) => {
     <section class="section">
       <div class="section-title">
         <h4>录制要求</h4>
-        <p>给录制人的简洁版 SOP。</p>
+        <p>录屏是最后一个人类环节，跟着草稿视频走。</p>
       </div>
       <div class="brief-box">
-        <p>16:9 · 1280 × 720 viewport · 高清录屏 · MP4 优先</p>
+        <p>先有脚本/字幕和 HyperFrames 草稿视频，再录屏；草稿里已经有文字和语音，不需要数字人视频。</p>
         <ul>
           <li>浏览器缩放固定 100%，画面不要出现通知、无关窗口、个人信息或水印。</li>
-          <li>录屏动作尽量对应口播稿，关键点击、输入、页面切换处稍微停顿。</li>
-          <li>开头和结尾各预留 1 秒静止画面，方便后期剪辑。</li>
-          <li>交付原始视频、中文口播稿、英文口播稿；视频里不要加字幕。</li>
-          <li>命名暂用 <code>use-case-xx.mp4</code>、<code>use-case-xx-cn.md</code>、<code>use-case-xx-en.md</code>。</li>
+          <li>按草稿视频的节奏录屏，关键点击、输入、页面切换处稍微停顿。</li>
+          <li>开头和结尾各预留 1 秒静止画面，方便后期把录屏盖到草稿视频上。</li>
+          <li>交付录屏素材即可；草稿视频里已有文字和语音，录屏里不要额外加字幕。</li>
+          <li>命名建议用 <code>screen-recording-xx.mp4</code> 或项目文件名加 <code>-recording.mp4</code>。</li>
         </ul>
       </div>
     </section>`;
@@ -1125,7 +1169,7 @@ const editBriefHtml = (item) => {
   return `
     <section class="section">
       <div class="section-title">
-        <h4>剪辑要求</h4>
+        <h4>覆盖导出要求</h4>
         <p>给后期看的基础 brief。</p>
       </div>
       <div class="brief-box">
@@ -1144,7 +1188,7 @@ const requiredChecksHtml = (item) => {
     <section class="section compact">
       <div class="section-title">
         <h4>必要项检查</h4>
-        <p>进入后期前至少确认这三项。</p>
+        <p>进入覆盖导出前至少确认这三项。</p>
       </div>
       <div class="check-grid">
         ${requiredChecks(item)
@@ -1413,7 +1457,7 @@ const outputsHtml = (item, selectedOutputs, locked) => {
     queue === "done"
       ? "记录这条视频实际交付或发布的平台。"
       : ["material_review", "edit_output"].includes(queue)
-        ? "在交给后期前确定实际交付平台；后续自动按这些平台检查导出是否齐。"
+        ? "在覆盖导出前确定实际交付平台；后续自动按这些平台检查导出是否齐。"
         : "选择实际交付平台，未交付的取消勾选。";
   return `
     <section class="section">
@@ -1521,10 +1565,12 @@ const detailBodyHtml = (item, assetsByType, selectedOutputs, decision, locked) =
   const exportAssets = filterAssetsByTypes(assetsByType, assetTypes.exports);
   const coverAssets = filterAssetsByTypes(assetsByType, assetTypes.cover);
   const distributionAssets = hasAssets(exportAssets) ? mergeAssetGroups(coverAssets, exportAssets) : assetsByType;
+  const scriptSection = scriptPreviewHtml(item);
 
   const bodies = {
     topic_board: `
       ${topicBriefHtml(item)}
+      ${scriptSection}
       ${productionMetaHtml(item, locked)}
       ${queueGuideHtml("选题判断", "这一阶段只看方向本身，不检查素材。", [
         "是否符合 Buda 当前传播重点",
@@ -1533,68 +1579,78 @@ const detailBodyHtml = (item, assetsByType, selectedOutputs, decision, locked) =
       ])}`,
     assignment: `
       ${topicBriefHtml(item)}
+      ${scriptSection}
       ${productionMetaHtml(item, locked)}
       ${recordingBriefHtml(item)}
-      ${queueGuideHtml("分配录制", "把方向交给具体录制人，并约定交付时间。", [
-        "确认录制人",
+      ${queueGuideHtml("分配脚本/草稿", "把方向交给具体负责人，并约定脚本和草稿视频交付时间。", [
+        "确认脚本/草稿负责人",
         "确认预计交付时间",
-        "把录制要求同步给对方",
+        "把草稿视频和最终录屏要求同步给对方",
       ])}`,
     recording: `
+      ${scriptSection}
       ${productionMetaHtml(item, locked)}
       ${recordingBriefHtml(item)}
-      ${queueGuideHtml("等待录制", "负责人和交付时间已确定，等录制人上传素材。", [
-        "确认录制人已经收到 SOP",
-        "等原始视频、中文口播稿、英文口播稿上传到 Google Drive",
-        "素材开始出现后会进入待补齐素材",
+      ${queueGuideHtml("等待录屏", "脚本和草稿视频已准备好，等录制人按草稿完成录屏。", [
+        "确认录制人已经看到脚本和草稿视频",
+        "等录屏素材上传到 Google Drive",
+        "录屏出现后会进入覆盖导出确认",
       ])}`,
     waiting_upload: `
+      ${scriptSection}
       ${productionMetaHtml(item, locked)}
       ${missingFocusHtml(item)}
       ${recordingBriefHtml(item)}
       ${archivedAssetsHtml(item, sourceAssets, { defaultOpen: true })}
       ${assetReviewHtml(item, locked)}`,
     material_review: `
+      ${scriptSection}
       ${requiredChecksHtml(item)}
       ${assetReviewHtml(item, locked)}
       ${outputsHtml(item, selectedOutputs, locked)}
       ${assetsHtml(item, sourceCoreAssets)}
-      ${queueGuideHtml("检查重点", "确认口播稿、封面素材和原始视频是否真的能进入后期。", [
-        "口播稿中英文是否齐全、方向是否明确",
-        "原始视频画面是否清楚，是否有敏感信息",
-        "封面素材是否是 PNG/JPG/JPEG；如果已有 Covers 最终封面，也可以直接进入后续流程",
+      ${queueGuideHtml("检查重点", "确认脚本、草稿视频和录屏是否真的能进入覆盖导出。", [
+        "脚本/字幕是否清楚，方向是否明确",
+        "草稿视频是否包含文字和语音，不需要数字人视频",
+        "录屏画面是否清楚，是否有敏感信息",
       ])}`,
     cover_generation: `
+      ${scriptSection}
       ${coverCopyHtml(item, decision, locked)}
       ${outputsHtml(item, selectedOutputs, locked)}
       ${assetsHtml(item, hasAssets(exportAssets) ? exportAssets : {})}
       ${archivedAssetsHtml(item, sourceCoreAssets)}`,
     edit_output: `
+      ${scriptSection}
       ${editBriefHtml(item)}
       ${assetReviewHtml(item, locked)}
       ${outputsHtml(item, selectedOutputs, locked)}
       ${assetsHtml(item, sourceCoreAssets)}
       ${archivedAssetsHtml(item, coverAssets)}`,
     editing: `
+      ${scriptSection}
       ${editBriefHtml(item)}
       ${outputsHtml(item, selectedOutputs, locked)}
       ${assetsHtml(item, sourceCoreAssets)}
-      ${queueGuideHtml("剪辑中", "后期已经开始处理，等待导出视频上传到渠道文件夹。", [
+      ${queueGuideHtml("覆盖导出中", "后期已经开始把录屏盖到草稿视频上，等待导出视频上传到渠道文件夹。", [
         `等待 ${channelRequirementLabel(item)} 文件夹出现导出视频`,
         "Shorts 有就一起确认，没有也不阻断待确认分发",
         "导出视频和 Covers 最终封面都齐了会自动进入待确认分发",
       ])}
       ${archivedAssetsHtml(item, coverAssets)}`,
     distribution_confirm: `
+      ${scriptSection}
       ${assetsHtml(item, distributionAssets)}
       ${distributionCopyHtml(item, locked)}
       ${publishedLinksHtml(item, locked)}`,
     done: `
+      ${scriptSection}
       ${doneSummaryHtml(item, selectedOutputs)}
       ${distributionCopyHtml(item, locked)}
       ${publishedLinksHtml(item, locked)}
       ${archivedAssetsHtml(item, assetsByType)}`,
     blocked: `
+      ${scriptSection}
       ${queueGuideHtml("阻塞原因", "这条视频暂时不能继续推进，需要先处理备注里的问题。", [
         "补齐缺失素材或方向",
         "明确负责人和下一步动作",
@@ -1612,7 +1668,7 @@ const reviewNoteLabel = (item) => {
   if (queue === "topic_board") return "选题备注";
   if (queue === "assignment") return "分配备注";
   if (queue === "recording") return "录制备注";
-  if (queue === "waiting_upload") return "录制备注";
+  if (queue === "waiting_upload") return "补齐备注";
   if (queue === "done") return "归档备注";
   return "审核备注";
 };
@@ -1620,24 +1676,24 @@ const reviewNoteLabel = (item) => {
 const reviewNoteHint = (item) => {
   const queue = workflowQueue(item);
   if (queue === "topic_board") return "记录选题判断、受众、角度或是否需要先放弃。";
-  if (queue === "assignment") return "记录录制人、交付时间或录制注意事项。";
+  if (queue === "assignment") return "记录脚本/草稿负责人、交付时间或录屏注意事项。";
   if (queue === "recording") return "记录录制进度、交付风险或提醒事项。";
-  if (queue === "waiting_upload") return "记录还缺什么素材、谁来补、什么时候补齐。";
+  if (queue === "waiting_upload") return "记录还缺脚本、草稿视频还是录屏素材，谁来补，什么时候补齐。";
   if (queue === "done") return "记录发布后的补充说明、异常或复盘事项。";
-  return "写给后期、设计或分发同事看的具体动作。";
+  return "写给覆盖导出、设计或分发同事看的具体动作。";
 };
 
 const reviewNotePlaceholder = (item) => {
   const queue = workflowQueue(item);
   if (queue === "topic_board") return "例如：适合演示哪类场景，是否先放弃。";
-  if (queue === "assignment") return "例如：负责人、交付时间或录制注意事项。";
+  if (queue === "assignment") return "例如：负责人、交付时间或录屏注意事项。";
   if (queue === "recording") return "例如：录制进度、风险或需要提醒的动作。";
   if (queue === "waiting_upload") {
     const missingText = missingRequiredLabelText(item);
-    return missingText ? `例如：${missingText} - 小明周五前补齐。` : "例如：素材已齐，可以先进入后期。";
+    return missingText ? `例如：${missingText} - 小明周五前补齐。` : "例如：三项已齐，可以进入覆盖导出。";
   }
   if (queue === "done") return "例如：发布链接异常、复盘事项或补充说明。";
-  return "例如：给后期、设计或分发同事的具体动作。";
+  return "例如：给覆盖导出、设计或分发同事的具体动作。";
 };
 
 const filteredItems = () =>
@@ -1795,11 +1851,11 @@ const dashboardStatusCardHtml = (item, options = {}) => {
 
 const dashboardSectionEmoji = {
   选题表: "📝",
-  待分配录制: "👤",
+  "待分配脚本/草稿": "👤",
   待录制: "🎥",
-  待补齐素材: "🧩",
-  待进入后期: "🚪",
-  正在剪辑: "✂️",
+  "待补脚本/草稿": "🧩",
+  待覆盖导出: "🚪",
+  覆盖导出中: "✂️",
   待制作封面: "🖼️",
   待确认分发: "✅",
   本期计划要发: "🗓️",
@@ -1891,7 +1947,7 @@ const renderDashboard = () => {
         <div><strong>${publishedLinkCount}</strong><span>已填发布链接</span></div>
         <div><strong>${plannedPublishItems.length}</strong><span>本期计划要发</span></div>
         <div><strong>${thisWeekOutputItems.length}</strong><span>本周预计输出</span></div>
-        <div><strong>${missingItems.length}</strong><span>素材不齐</span></div>
+        <div><strong>${missingItems.length}</strong><span>脚本/草稿待补</span></div>
       </section>
 
       <div class="dashboard-section-flow">
@@ -1912,11 +1968,11 @@ const renderDashboard = () => {
           detail: (item) => nextStepLabel(item),
         })}
         ${dashboardSectionHtml({
-          title: "正在剪辑",
+          title: "覆盖导出中",
           count: editingItems.length,
           sectionItems: editingItems.slice(0, 6),
-          empty: "当前没有剪辑中的视频。",
-          meta: () => "剪辑中",
+          empty: "当前没有覆盖导出中的视频。",
+          meta: () => "覆盖导出中",
           detail: (item) => nextStepLabel(item),
         })}
         <section class="dashboard-section dashboard-published-wide">
@@ -1924,18 +1980,18 @@ const renderDashboard = () => {
           ${dashboardPublishedHtml(doneItems)}
         </section>
         ${dashboardSectionHtml({
-          title: "待补齐素材",
+          title: "待补脚本/草稿",
           count: missingItems.length,
           sectionItems: missingItems.slice(0, 6),
-          empty: "没有待补齐素材的视频。",
+          empty: "没有等待补脚本/草稿的视频。",
           meta: (item) => productionOwner(item),
-          detail: (item) => `❌ 缺 ${missingRequiredLabelText(item) || "素材"}`,
+          detail: (item) => `❌ 缺 ${missingRequiredLabelText(item) || "必要项"}`,
         })}
         ${dashboardSectionHtml({
-          title: "待进入后期",
+          title: "待覆盖导出",
           count: materialReviewItems.length,
           sectionItems: materialReviewItems.slice(0, 6),
-          empty: "没有等待进入后期的视频。",
+          empty: "没有等待覆盖导出确认的视频。",
           meta: (item) => workflowLabel(item),
           detail: (item) => nextStepLabel(item),
         })}
@@ -1956,10 +2012,10 @@ const renderDashboard = () => {
           detail: (item) => `${productionOwner(item)} · ${productionDueDate(item)}`,
         })}
         ${dashboardSectionHtml({
-          title: "待分配录制",
+          title: "待分配脚本/草稿",
           count: assignmentItems.length,
           sectionItems: assignmentItems.slice(0, 6),
-          empty: "没有等待分配录制人的选题。",
+          empty: "没有等待分配脚本/草稿负责人的选题。",
           meta: () => "待分配",
           detail: (item) => nextStepLabel(item),
         })}
@@ -2023,12 +2079,12 @@ const primaryActionLabel = (humanItems, blockedItems, executionItems) => {
 
   const primaryQueue = primaryActionQueue(humanItems, blockedItems);
   if (primaryQueue === "topic_board") return "确认选题是否进入录制计划";
-  if (primaryQueue === "assignment") return "分配录制人和交付时间";
-  if (primaryQueue === "recording") return "等待录制完成并上传素材";
-  if (primaryQueue === "waiting_upload") return "补齐口播稿、封面素材和原始视频";
-  if (primaryQueue === "material_review") return "确认素材质量并交给后期";
-  if (primaryQueue === "edit_output") return "确认素材质量并交给后期";
-  if (primaryQueue === "editing") return "等待后期导出所选渠道视频";
+  if (primaryQueue === "assignment") return "分配脚本/草稿负责人和交付时间";
+  if (primaryQueue === "recording") return "等待录屏完成并上传素材";
+  if (primaryQueue === "waiting_upload") return "补齐脚本/字幕、草稿视频或录屏素材";
+  if (primaryQueue === "material_review") return "确认三项内容并交给覆盖导出";
+  if (primaryQueue === "edit_output") return "确认三项内容并交给覆盖导出";
+  if (primaryQueue === "editing") return "等待覆盖导出所选渠道视频";
   if (primaryQueue === "cover_generation") return "制作最终封面并上传到 Covers 文件夹";
   if (primaryQueue === "distribution_confirm") return "Kelly 和 Kelvin 都确认同一条完成状态";
   if (executionItems.length) return "已有批准项，等待 skill 执行下一步";
@@ -2040,12 +2096,12 @@ const primaryActionCountLabel = (humanItems, blockedItems) => {
 
   const primaryQueue = primaryActionQueue(humanItems, blockedItems);
   if (primaryQueue === "topic_board") return "待确认选题";
-  if (primaryQueue === "assignment") return "待分配录制";
+  if (primaryQueue === "assignment") return "待分配脚本/草稿";
   if (primaryQueue === "recording") return "待录制";
-  if (primaryQueue === "waiting_upload") return "待补齐素材";
-  if (primaryQueue === "material_review") return "待进入后期";
-  if (primaryQueue === "edit_output") return "待进入后期";
-  if (primaryQueue === "editing") return "剪辑中";
+  if (primaryQueue === "waiting_upload") return "待补脚本/草稿";
+  if (primaryQueue === "material_review") return "待覆盖导出";
+  if (primaryQueue === "edit_output") return "待覆盖导出";
+  if (primaryQueue === "editing") return "覆盖导出中";
   if (primaryQueue === "cover_generation") return "待制作封面";
   if (primaryQueue === "distribution_confirm") return "待确认分发";
   return "待人工处理";
@@ -2153,7 +2209,7 @@ const renderMetrics = () => {
   const cards = [
     ["待确认分发", value((item) => workflowQueue(item) === "distribution_confirm"), "导出和最终封面已齐"],
     ["待制作封面", value((item) => workflowQueue(item) === "cover_generation"), "有导出，等 Covers"],
-    ["待补齐素材", value((item) => workflowQueue(item) === "waiting_upload"), "口播、视频或封面待补"],
+    ["待补脚本/草稿", value((item) => workflowQueue(item) === "waiting_upload"), "脚本、草稿或录屏待补"],
   ];
 
   $("#metrics").innerHTML = cards
@@ -2209,9 +2265,9 @@ const renderList = () => {
       <span>ID / Title / Filename</span>
       <span>阶段</span>
       <span>负责人/交付</span>
-      <span>视频</span>
-      <span>口播稿</span>
-      <span>封面素材</span>
+      <span>脚本</span>
+      <span>草稿视频</span>
+      <span>录屏素材</span>
     </div>`
       : isOverviewView
         ? `<div class="list-header overview-header">
@@ -2219,18 +2275,18 @@ const renderList = () => {
       <span>阶段</span>
       <span>负责人</span>
       <span>交付时间</span>
-      <span>视频</span>
-      <span>口播稿</span>
-      <span>封面素材</span>
+      <span>脚本</span>
+      <span>草稿视频</span>
+      <span>录屏素材</span>
       <span>提示</span>
     </div>`
     : `<div class="list-header">
       <span>ID / Title / Filename</span>
       <span>阶段</span>
       <span>状态</span>
-      <span>口播稿</span>
-      <span>封面素材</span>
-      <span>原始视频</span>
+      <span>脚本</span>
+      <span>草稿视频</span>
+      <span>录屏素材</span>
       <span>提示</span>
     </div>`;
 
@@ -2314,7 +2370,7 @@ const renderList = () => {
                   <span>${escapeHtml(owner)}</span>
                   ${dueDate ? `<small>${escapeHtml(dueDate)}</small>` : ""}
                 </div>
-                ${materialStateCells(["raw_video", "voiceover", "cover_source"])}`
+                ${materialStateCells(requiredAssetKeys)}`
               : isOverviewView
                 ? `
                 <div class="asset-cell" data-label="负责人">
@@ -2323,7 +2379,7 @@ const renderList = () => {
                 <div class="asset-cell" data-label="交付时间">
                   <span class="inline-text">${escapeHtml(dueDate)}</span>
                 </div>
-                ${materialStateCells(["raw_video", "voiceover", "cover_source"])}`
+                ${materialStateCells(requiredAssetKeys)}`
               : requiredChecks(item)
                   .map((check, index) => `
                     ${index === 0 ? `<div class="status-cell" data-label="状态">
@@ -2450,7 +2506,7 @@ const renderDetail = () => {
         ${
           queue === "done"
             ? `<button class="action-button primary" data-action="${escapeHtml(decision.action || "approve")}" ${locked ? "disabled" : ""} title="保存已发布链接">保存链接</button>`
-            : `<button class="action-button primary" data-action="approve" ${approveDisabled ? "disabled" : ""} title="${queue === "recording" ? "录制人上传素材后会进入下一步" : queue === "waiting_upload" ? (allowManualEditing ? "口播稿和原始视频已齐，可以先进入剪辑；封面后补" : "口播稿和原始视频至少齐了以后再进入剪辑") : queue === "editing" ? "等渠道导出视频出现后自动进入下一步" : queue === "distribution_confirm" ? "保存当前勾选的分发确认；Kelly 和 Kelvin 都确认后才进入已完成" : isWorkflowDone(item) ? "这条视频已确认完成" : "确认进入下一步"}">${escapeHtml(approveButtonLabel(item))}</button>`
+            : `<button class="action-button primary" data-action="approve" ${approveDisabled ? "disabled" : ""} title="${queue === "recording" ? "录屏上传后会进入覆盖导出确认" : queue === "waiting_upload" ? "脚本/字幕、草稿视频和录屏素材齐了以后再进入覆盖导出" : queue === "editing" ? "等渠道导出视频出现后自动进入下一步" : queue === "distribution_confirm" ? "保存当前勾选的分发确认；Kelly 和 Kelvin 都确认后才进入已完成" : isWorkflowDone(item) ? "这条视频已确认完成" : "确认进入下一步"}">${escapeHtml(approveButtonLabel(item))}</button>`
         }
         ${queue === "done" ? "" : `<button class="action-button" data-save-only="true" data-action="${escapeHtml(decision.action || "")}" ${locked ? "disabled" : ""} title="只保存负责人、交付时间、录制状态和备注，不推进流程">保存信息</button>`}
         <details class="drawer-more-actions">

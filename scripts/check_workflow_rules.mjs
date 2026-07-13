@@ -15,19 +15,19 @@ const forbiddenAppRule =
 const checks = [
   {
     ok: appSource.includes(requiredAppRule),
-    message: "app workflow keeps manually started editing in 剪辑中.",
+    message: "app workflow keeps manually started overlay/export in the editing queue.",
   },
   {
     ok: !appSource.includes(forbiddenAppRule),
     message: "app workflow no longer routes manual editing without cover to 待制作封面.",
   },
   {
-    ok: rulesSource.includes("The app keeps manually started work in `剪辑中` until channel export evidence appears."),
-    message: "canonical rules document manual editing behavior.",
+    ok: rulesSource.includes("The app keeps manually started work in the `editing` queue until channel export evidence appears."),
+    message: "canonical rules document manual overlay/export behavior.",
   },
   {
-    ok: skillSource.includes("manually started editing stays in `剪辑中` until channel export evidence appears"),
-    message: "skill summary documents manual editing behavior.",
+    ok: skillSource.includes("manually started overlay/export stays in the `editing` queue until channel export evidence appears"),
+    message: "skill summary documents manual overlay/export behavior.",
   },
 ];
 
