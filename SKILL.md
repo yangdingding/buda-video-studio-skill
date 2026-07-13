@@ -29,7 +29,7 @@ When the user asks to execute approved decisions:
 1. Run `node scripts/validate_ui_schema.mjs`.
 2. Run `node scripts/execute_decisions.mjs`.
 3. Read each generated handoff before acting: `production/` handoffs direct AI-video creation and `delivery/` handoffs direct post-production packaging.
-4. For AI production, use the selected `hyperframes` or `remotion` engine and invoke `$buda-video-delivery` in `covers` mode. For post-production delivery, invoke `$buda-video-delivery` in `publish` mode.
+4. For AI production, use the selected `hyperframes` or `remotion` engine and invoke `$buda-video-delivery` in `covers` mode; final cover creation is part of this stage. For post-production delivery, invoke `$buda-video-delivery` in `publish` mode to package SRT, hard subtitles, Shorts cover insertion, and platform outputs.
 5. Summarize the execution report. Handoffs are local planning artifacts; do not claim media was rendered, uploaded, or published until evidence exists.
 
 If the user says "chat only", "no UI", "纯聊天", or similar, do not launch the app. Summarize the batch in numbered items and collect approvals in chat.
@@ -96,9 +96,9 @@ Buda Videos/
 `buda-video-studio` is the production state machine and the single entry point. `buda-video-delivery` is its mode-based finishing dependency; do not dispatch legacy cover or Shorts skills directly.
 
 1. In `AI 视频制作中`, create an AI production task. It records a `hyperframes` or `remotion` engine, a `project` or `buda` cover profile, and an artifact contract: `Script/`, `Remotion/`, and `Covers/`.
-2. The production agent works in the configured video workspace repository, records source commit and relative source paths, creates the AI master with voice and subtitles, and invokes `$buda-video-delivery covers`.
+2. The production agent works in the configured video workspace repository, records source commit and relative source paths, creates the AI master with voice and subtitles, and invokes `$buda-video-delivery covers` to produce 16:9 and needed 9:16 final covers during AI production.
 3. Verified AI assets later export to the project Drive folders. The project moves to `待确认 AI 视频` only after Drive evidence contains script, AI video, and cover.
-4. After AI approval, human screen recording is the last recording step. In `后期剪辑中`, create a delivery task that invokes `$buda-video-delivery publish` for final channel files, Shorts, and distribution material.
+4. After AI approval, human screen recording is the last recording step. In `后期剪辑中`, create a delivery task that invokes `$buda-video-delivery publish` for final channel files, SRT extraction/regeneration, single-line SRT normalization, hard subtitles, Shorts cover insertion, and distribution material.
 5. Social publication remains human-approved. The app records selected channels, editable platform copy, and public links after publishing.
 
 Configuration lookup order:
@@ -150,7 +150,7 @@ Use `references/video-rules.md` as the canonical rule explanation. In short:
 1. Treat each direct child folder under the configured Drive root as a video project.
 2. Identify scripts/storyboards, HyperFrames or Remotion AI video renders, final human screen recordings, cover source/material images, final `Covers` outputs, and channel exports from configured folder names, file keywords, and file extensions.
 3. Before recording, automatically check the AI video package: script/storyboard material, rendered AI video with voice/subtitles, and final cover. The human screen recording is checked only after the AI video is approved.
-4. Show the human workflow as: `选题表` -> `AI 视频制作中` -> `待确认 AI 视频` -> `待录制` -> `待进入后期` -> `后期剪辑中` -> `待确认分发`. Final covers are produced with the AI video package, not in a separate queue.
+4. Show the human workflow as: `选题表` -> `AI 视频制作中` -> `待确认 AI 视频` -> `待录制` -> `待进入后期` -> `后期剪辑中` -> `待确认分发`. Final covers are produced with the AI video package, not in a separate queue; SRT, hard subtitles, and Shorts packaging are produced after human recording in post-production delivery.
 5. Apply asset priority: selected YouTube language exports plus 视频号 and final cover -> distribution confirmation. Default projects require YouTube Chinese and English; single-language projects can uncheck the unused YouTube language in `输出渠道`, so one YouTube export can be enough. Shorts is optional and should be shown when present, but missing Shorts must not block `待确认分发`; channel exports without final cover stay in `editing` until the AI production package restores it; manually started post-production stays in the `editing` queue until channel export evidence appears; approved AI video plus screen recording -> post-production handoff.
 6. Add human-readable missing-item risks when a required item is absent.
 7. Treat recording as the final human production step: do not move an item into `待录制` until the AI video package has been reviewed and approved.

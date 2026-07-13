@@ -47,6 +47,8 @@ const aiHandoff = renderAiVideoProductionHandoff({ item, decision: aiDecision, p
 assert.match(aiHandoff, /Engine: remotion/);
 assert.match(aiHandoff, /\$remotion/);
 assert.match(aiHandoff, /\$buda-video-delivery in covers mode/);
+assert.match(aiHandoff, /Cover production happens in this AI production stage/);
+assert.match(aiHandoff, /matching 9:16 Shorts cover variant/);
 assert.match(aiHandoff, /Script\//);
 assert.match(aiHandoff, /Remotion\//);
 assert.match(aiHandoff, /Covers\//);
@@ -54,6 +56,9 @@ assert.equal(aiHandoff.includes("/Users/"), false);
 
 const deliveryHandoff = renderPostProductionDeliveryHandoff({ item, decision: deliveryDecision, production });
 assert.match(deliveryHandoff, /\$buda-video-delivery in publish mode/);
+assert.match(deliveryHandoff, /SRT extraction\/regeneration/);
+assert.match(deliveryHandoff, /hard subtitles/);
+assert.match(deliveryHandoff, /matching 9:16 cover/);
 assert.match(deliveryHandoff, /native 9:16 composition/);
 assert.match(deliveryHandoff, /Distribution\//);
 assert.equal(deliveryHandoff.includes("/Users/"), false);
