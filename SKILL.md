@@ -1,11 +1,11 @@
 ---
 name: buda-video-studio
-description: "Manage Buda video production from a Google Drive-backed library: scan ideas, scripts, HyperFrames draft videos, final screen recordings, cover copy, output formats, and distribution checklists."
+description: "Manage Buda video production from a Google Drive-backed library: scan topic scripts, AI video renders, screen recordings, cover copy, output formats, and distribution checklists."
 ---
 
 # Buda Video Studio
 
-Use this skill when the user wants to manage Buda video production work: video topic directions, script/draft readiness, final screen recording, lightweight overlay/export handoff, cover copy, output formats, and distribution channels.
+Use this skill when the user wants to manage Buda video production work: topic directions with scripts/storyboards, HyperFrames or Remotion AI video readiness, final human screen recording, post-production handoff, cover copy, output formats, and distribution channels.
 
 This skill follows the App-in-Skill pattern:
 
@@ -16,7 +16,7 @@ This skill follows the App-in-Skill pattern:
 
 ## Default Workflow
 
-When the user asks to review video production status, overlay/export readiness, cover copy, output formats, or distribution channels:
+When the user asks to review video production status, AI video readiness, post-production readiness, cover copy, output formats, or distribution channels:
 
 1. Run `node scripts/generate_batch.mjs` from this skill directory.
 2. If onboarding says OAuth client exists but no token is configured, run `node scripts/auth_google_drive.mjs`, have the user approve the browser prompt, then run `node scripts/generate_batch.mjs` again.
@@ -118,11 +118,12 @@ Configuration lookup order:
 
 ## Video Stages
 
-- `idea`: topic or concept only. The app shows this first in `选题表`; once accepted it moves to `待分配脚本/草稿`, then to `待补脚本/草稿`.
-- `script_ready`: script/subtitle material and/or the HyperFrames draft video exist, but the final human screen recording is not ready.
-- `assets_ready`: a screen recording exists but script/subtitle material or the draft video is still missing.
-- `ready_for_edit`: script/subtitle material, HyperFrames draft video, and final human screen recording are ready for overlay/export.
-- `editing`: currently in overlay/export. The app uses this when overlay/export has started but channel export files have not appeared yet.
+- `idea`: topic or concept only. The app shows this first in `选题表`; accepted topics move into `AI 视频制作中`.
+- `script_ready`: script/storyboard material or partial AI video evidence exists, but the AI video package is not complete.
+- `render_ready`: the AI video package is ready for human review: script/storyboard, rendered preview video with voice/subtitles, and final cover.
+- `assets_ready`: a human screen recording exists before the AI video package is complete.
+- `ready_for_edit`: the AI video package has been approved and the final human screen recording is ready for post-production.
+- `editing`: currently in post-production. The app uses this when editing/export has started but channel export files have not appeared yet.
 - `cover_review`: needs cover copy or cover approval.
 - `render_ready`: ready to render/export.
 - `distribution_ready`: exported asset exists and needs distribution work.
@@ -134,12 +135,12 @@ Configuration lookup order:
 Use `references/video-rules.md` as the canonical rule explanation. In short:
 
 1. Treat each direct child folder under the configured Drive root as a video project.
-2. Identify scripts/subtitles, HyperFrames draft videos, final human screen recordings, cover source/material images, final `Covers` outputs, and channel exports from configured folder names, file keywords, and file extensions.
-3. For each project, automatically check the three required production items: script/subtitle material, HyperFrames draft video with text+voice, and the final human screen recording. Covers are handled after export, not as a pre-recording gate.
-4. Show the human workflow as: `选题表` -> `待分配脚本/草稿` -> `待补脚本/草稿` -> `待录制` -> `待覆盖导出` -> `覆盖导出中` -> `待制作封面` -> `待确认分发`.
-5. Apply asset priority: selected YouTube language exports plus 视频号 and final cover -> distribution confirmation. Default projects require YouTube Chinese and English; single-language projects can uncheck the unused YouTube language in `输出渠道`, so one YouTube export can be enough. Shorts is optional and should be shown when present, but missing Shorts must not block `待确认分发`; channel exports without final cover -> cover production; manually started overlay/export stays in the `editing` queue until channel export evidence appears; all three required production items present -> overlay/export handoff; script+draft without screen recording -> final human recording queue.
+2. Identify scripts/storyboards, HyperFrames or Remotion AI video renders, final human screen recordings, cover source/material images, final `Covers` outputs, and channel exports from configured folder names, file keywords, and file extensions.
+3. Before recording, automatically check the AI video package: script/storyboard material, rendered AI video with voice/subtitles, and final cover. The human screen recording is checked only after the AI video is approved.
+4. Show the human workflow as: `选题表` -> `AI 视频制作中` -> `待确认 AI 视频` -> `待录制` -> `待进入后期` -> `后期剪辑中` -> `待制作封面` -> `待确认分发`.
+5. Apply asset priority: selected YouTube language exports plus 视频号 and final cover -> distribution confirmation. Default projects require YouTube Chinese and English; single-language projects can uncheck the unused YouTube language in `输出渠道`, so one YouTube export can be enough. Shorts is optional and should be shown when present, but missing Shorts must not block `待确认分发`; channel exports without final cover -> cover production; manually started post-production stays in the `editing` queue until channel export evidence appears; approved AI video plus screen recording -> post-production handoff.
 6. Add human-readable missing-item risks when a required item is absent.
-7. Treat recording as the final human production step: do not move an item into `待录制` until script/subtitle material and the HyperFrames draft video are present.
+7. Treat recording as the final human production step: do not move an item into `待录制` until the AI video package has been reviewed and approved.
 8. Keep the app read/write only over local handoff files; external actions remain skill-side and approval-gated.
 
 ## State and Sync
@@ -163,7 +164,7 @@ Supported decision actions:
 
 Approved first-version execution creates local files only:
 
-- overlay/export brief markdown files under `app/.cache/briefs/`
+- post-production brief markdown files under `app/.cache/briefs/`
 - distribution checklist markdown files under `app/.cache/distribution/`
 - `app/.cache/execution_report.json`
 

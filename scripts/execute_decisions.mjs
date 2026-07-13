@@ -32,12 +32,12 @@ ${item.summary || "No summary."}
 
 ${item.source_assets.map((asset) => `- ${asset.type}: ${asset.name} (${asset.path})`).join("\n") || "- None"}
 
-## Overlay/Export Brief
+## Post-production Brief
 
 - Format: ${item.edit_brief.format}
 - Duration target: ${item.edit_brief.duration_target}
 - Screen recording ready: ${item.edit_brief.recording_ready || item.edit_brief.assets_ready ? "yes" : "no"}
-- Draft video ready: ${item.edit_brief.draft_video_ready ? "yes" : "no"}
+- AI video ready: ${item.edit_brief.draft_video_ready ? "yes" : "no"}
 - Transcript ready: ${item.edit_brief.transcript_ready ? "yes" : "no"}
 
 ## Key Beats
@@ -161,7 +161,7 @@ const main = async () => {
         ref: item.ref,
         title: item.title,
         status: "executed",
-        reason: "Generated local overlay/export brief and distribution checklist.",
+        reason: "Generated local post-production brief and distribution checklist.",
         outputs: {
           brief: briefPath,
           distribution: distributionPath,

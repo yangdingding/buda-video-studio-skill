@@ -15,7 +15,7 @@ const forbiddenAppRule =
 const checks = [
   {
     ok: appSource.includes(requiredAppRule),
-    message: "app workflow keeps manually started overlay/export in the editing queue.",
+    message: "app workflow keeps manually started post-production in the editing queue.",
   },
   {
     ok: !appSource.includes(forbiddenAppRule),
@@ -23,11 +23,11 @@ const checks = [
   },
   {
     ok: rulesSource.includes("The app keeps manually started work in the `editing` queue until channel export evidence appears."),
-    message: "canonical rules document manual overlay/export behavior.",
+    message: "canonical rules document manual post-production behavior.",
   },
   {
-    ok: skillSource.includes("manually started overlay/export stays in the `editing` queue until channel export evidence appears"),
-    message: "skill summary documents manual overlay/export behavior.",
+    ok: skillSource.includes("manually started post-production stays in the `editing` queue until channel export evidence appears"),
+    message: "skill summary documents manual post-production behavior.",
   },
 ];
 

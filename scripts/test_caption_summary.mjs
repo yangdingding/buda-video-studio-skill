@@ -118,7 +118,7 @@ assert.equal(item.display_id, "multi-person-collaboration");
 assert.equal(item.filename, "use-case-multi-person-collaboration");
 assert.equal(item.title, "Multi person collaboration");
 
-const draftReadyItem = buildProjectItem({
+const aiVideoReadyItem = buildProjectItem({
   project: {
     id: "project-draft",
     name: "Buda-release-video-agent-permission",
@@ -140,14 +140,22 @@ const draftReadyItem = buildProjectItem({
       folder_path: ["Buda-release-video-agent-permission", "Draft"],
       extension: ".mp4",
     },
+    {
+      id: "cover",
+      name: "release-cover.png",
+      path: "Buda-release-video-agent-permission/Covers/release-cover.png",
+      folder_path: ["Buda-release-video-agent-permission", "Covers"],
+      extension: ".png",
+    },
   ],
   readSnippet: () => "Release video agent permission script.",
 });
 
-assert.equal(draftReadyItem.stage, "script_ready");
-assert.equal(draftReadyItem.rule.id, "draft_video_ready_for_recording");
-assert.equal(draftReadyItem.required_checks.find((check) => check.key === "draft_video")?.ready, true);
-assert.equal(draftReadyItem.required_checks.find((check) => check.key === "raw_video")?.ready, false);
+assert.equal(aiVideoReadyItem.stage, "render_ready");
+assert.equal(aiVideoReadyItem.rule.id, "ai_video_ready_for_review");
+assert.equal(aiVideoReadyItem.required_checks.find((check) => check.key === "voiceover")?.ready, true);
+assert.equal(aiVideoReadyItem.required_checks.find((check) => check.key === "draft_video")?.ready, true);
+assert.equal(aiVideoReadyItem.required_checks.find((check) => check.key === "cover")?.ready, true);
 
 const overlayReadyItem = buildProjectItem({
   project: {
@@ -172,6 +180,13 @@ const overlayReadyItem = buildProjectItem({
       extension: ".mp4",
     },
     {
+      id: "cover",
+      name: "release-cover.png",
+      path: "Buda-release-video-agent-permission/Covers/release-cover.png",
+      folder_path: ["Buda-release-video-agent-permission", "Covers"],
+      extension: ".png",
+    },
+    {
       id: "recording",
       name: "screen-recording-release.mp4",
       path: "Buda-release-video-agent-permission/Raw/screen-recording-release.mp4",
@@ -184,5 +199,5 @@ const overlayReadyItem = buildProjectItem({
 
 assert.equal(overlayReadyItem.stage, "ready_for_edit");
 assert.equal(overlayReadyItem.rule.id, "required_production_items_ready");
-assert.equal(overlayReadyItem.required_checks.map((check) => `${check.key}:${check.ready}`).join(","), "voiceover:true,draft_video:true,raw_video:true");
+assert.equal(overlayReadyItem.required_checks.map((check) => `${check.key}:${check.ready}`).join(","), "voiceover:true,draft_video:true,cover:true");
 console.log("Caption summary OK.");

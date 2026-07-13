@@ -36,6 +36,7 @@ video_library:
     - "草稿"
     - "HyperFrames"
     - "HyperFrame"
+    - "Remotion"
     - "Preview"
     - "预览"
   draft_video_file_keywords:
@@ -43,6 +44,7 @@ video_library:
     - "草稿"
     - "hyperframe"
     - "hyperframes"
+    - "remotion"
     - "preview"
     - "rough cut"
     - "roughcut"
@@ -96,12 +98,13 @@ topic_sources:
   csv_path: ""
 
 video_rules:
-  # Required production checks: script/subtitle, HyperFrames draft video with text+voice,
-  # and the final human screen recording. Covers are handled after export.
+  # Pre-recording AI package checks: script/storyboard, HyperFrames/Remotion
+  # AI video with voice+subtitles, and the final cover. Human screen recording
+  # is checked after AI video approval.
   distribution_ready_requires_export: true
   ready_for_edit_requires_voiceover: true
   ready_for_edit_requires_draft_video: true
-  ready_for_edit_requires_cover: false
+  ready_for_edit_requires_cover: true
   ready_for_edit_requires_raw: true
   ready_for_edit_accepts_script: true
   ready_for_edit_accepts_transcript: true
