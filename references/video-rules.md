@@ -56,6 +56,15 @@ The app displays a production workflow on top of the deterministic file-stage ru
 
 The first queues are advanced by local UI decisions only. They do not mutate Google Drive.
 
+## 4.1 Production Handoffs
+
+The app has two explicit local task actions. Creating a task does not claim that media has rendered or uploaded.
+
+1. `AI 制作任务`: available in `AI 视频制作中`. It records `hyperframes` or `remotion`, writes a handoff under `app/.cache/production/`, and directs the production agent to create the script, AI video, voice, subtitles, and final covers. The handoff invokes the unified `buda-video-delivery` `covers` mode.
+2. `后期交付任务`: available in `后期剪辑中`. It writes a handoff under `app/.cache/delivery/` and directs the production agent to finish the horizontal master, channel exports, Shorts, and distribution material through `buda-video-delivery` `publish` mode.
+
+Both task files use repository identifiers and project-relative Drive folders only. The later controlled export step is responsible for writing verified media into Drive.
+
 ## 5. Automatic vs Manual Progress
 
 Automatic progress comes from Drive evidence:
@@ -71,11 +80,13 @@ Automatic progress comes from Drive evidence:
 Manual progress comes from the local UI and is stored in `buda-video-status.json` when Drive write access is available:
 
 - Accepting a topic moves it from `选题表` to `AI 视频制作中`.
+- Creating an AI production task selects the render engine and cover brand profile, but keeps the item in `AI 视频制作中` until Drive evidence proves the package exists.
 - Confirming the AI video moves it to `待录制`.
 - Saving owner, delivery time, and recording status makes the assignment visible in all lists.
 - Changing `输出渠道` changes what the app expects for distribution. For example, a Chinese-only project should keep `YouTube 中文` and `视频号`, and uncheck `YouTube English`.
 - Recording is the last human production step. Do not move an item into recording just because it has been assigned; wait until the AI video package has been approved.
 - Post-production is intentionally light: put the human screen recording over the AI video and export the selected platform versions.
+- Creating a delivery task keeps the item in `后期剪辑中` until the selected channel exports appear.
 - Marking distribution complete stores publication links and moves the item to `已完成`.
 
 ## 6. Workflow Status

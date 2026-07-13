@@ -6,6 +6,7 @@ import { readBody, sendJson } from "./json.mjs";
 import { saveDecision } from "./decisions.mjs";
 import { getState } from "./state.mjs";
 import { generateBatch } from "../../scripts/generate_batch.mjs";
+import { executeApprovedDecisions } from "../../scripts/execute_decisions.mjs";
 import { serveDownload } from "./downloads.mjs";
 import { serveThumbnail } from "./thumbnails.mjs";
 
@@ -64,6 +65,13 @@ export const handleRequest = async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/decision") {
       const payload = JSON.parse(await readBody(request));
       sendJson(response, 200, { decision: await saveDecision(payload) });
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/execute") {
+      const payload = JSON.parse(await readBody(request));
+      const report = await executeApprovedDecisions({ itemIds: payload.id ? [payload.id] : [] });
+      sendJson(response, 200, { ok: true, report });
       return;
     }
 

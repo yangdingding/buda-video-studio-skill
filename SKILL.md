@@ -1,11 +1,11 @@
 ---
 name: buda-video-studio
-description: "Manage Buda video production from a Google Drive-backed library: scan topic scripts, AI video renders, screen recordings, cover copy, output formats, and distribution checklists."
+description: "Orchestrate Buda video production from topic scripts through AI video handoffs, cover and delivery modes, Google Drive review, human recording, post-production, Shorts, and distribution records."
 ---
 
 # Buda Video Studio
 
-Use this skill when the user wants to manage Buda video production work: topic directions with scripts/storyboards, HyperFrames or Remotion AI video readiness, final human screen recording, post-production handoff, cover copy, output formats, and distribution channels.
+Use this skill when the user wants to manage Buda video production work: topic directions with scripts/storyboards, HyperFrames or Remotion AI video handoffs, final human screen recording, post-production delivery, cover copy, output formats, Shorts, and distribution channels.
 
 This skill follows the App-in-Skill pattern:
 
@@ -28,7 +28,9 @@ When the user asks to execute approved decisions:
 
 1. Run `node scripts/validate_ui_schema.mjs`.
 2. Run `node scripts/execute_decisions.mjs`.
-3. Summarize the execution report.
+3. Read each generated handoff before acting: `production/` handoffs direct AI-video creation and `delivery/` handoffs direct post-production packaging.
+4. For AI production, use the selected `hyperframes` or `remotion` engine and invoke `$buda-video-delivery` in `covers` mode. For post-production delivery, invoke `$buda-video-delivery` in `publish` mode.
+5. Summarize the execution report. Handoffs are local planning artifacts; do not claim media was rendered, uploaded, or published until evidence exists.
 
 If the user says "chat only", "no UI", "纯聊天", or similar, do not launch the app. Summarize the batch in numbered items and collect approvals in chat.
 
@@ -89,6 +91,16 @@ Buda Videos/
 
 `Raw/成品样片/`, `封面素材/`, or configured cover-source folders are treated as cover source/material for cover production. `Covers/` contains final generated cover outputs for distribution checks.
 
+## Production Orchestration
+
+`buda-video-studio` is the production state machine and the single entry point. `buda-video-delivery` is its mode-based finishing dependency; do not dispatch legacy cover or Shorts skills directly.
+
+1. In `AI 视频制作中`, create an AI production task. It records a `hyperframes` or `remotion` engine, a `project` or `buda` cover profile, and an artifact contract: `Script/`, `Remotion/`, and `Covers/`.
+2. The production agent works in the configured video workspace repository, records source commit and relative source paths, creates the AI master with voice and subtitles, and invokes `$buda-video-delivery covers`.
+3. Verified AI assets later export to the project Drive folders. The project moves to `待确认 AI 视频` only after Drive evidence contains script, AI video, and cover.
+4. After AI approval, human screen recording is the last recording step. In `后期剪辑中`, create a delivery task that invokes `$buda-video-delivery publish` for final channel files, Shorts, and distribution material.
+5. Social publication remains human-approved. The app records selected channels, editable platform copy, and public links after publishing.
+
 Configuration lookup order:
 
 1. `BUDA_VIDEO_STUDIO_CONFIG=/absolute/path/to/config.yml`
@@ -113,6 +125,8 @@ Configuration lookup order:
 - `app/.cache/current_batch.json`: latest generated video review batch.
 - `app/.cache/decisions.json`: user decisions, notes, publication links, and local item edits.
 - `app/.cache/execution_report.json`: latest generated briefs/checklists report.
+- `app/.cache/production/`: AI video production handoffs with render engine, script, cover, and Drive artifact requirements.
+- `app/.cache/delivery/`: post-production delivery handoffs with channel, Shorts, and distribution requirements.
 - `app/.cache/agent.lock`: lock while the skill writes batch/report files.
 - `buda-video-status.json`: optional Google Drive root-level state file used to remember decisions, completion state, and publication links across environments.
 
@@ -125,7 +139,6 @@ Configuration lookup order:
 - `ready_for_edit`: the AI video package has been approved and the final human screen recording is ready for post-production.
 - `editing`: currently in post-production. The app uses this when editing/export has started but channel export files have not appeared yet.
 - `cover_review`: needs cover copy or cover approval.
-- `render_ready`: ready to render/export.
 - `distribution_ready`: exported asset exists and needs distribution work.
 - `published`: already published or archived as done.
 - `blocked`: missing critical source material or user direction.
@@ -166,6 +179,8 @@ Approved first-version execution creates local files only:
 
 - post-production brief markdown files under `app/.cache/briefs/`
 - distribution checklist markdown files under `app/.cache/distribution/`
+- AI production handoffs under `app/.cache/production/`
+- post-production delivery handoffs under `app/.cache/delivery/`
 - `app/.cache/execution_report.json`
 
 No external publication is performed.

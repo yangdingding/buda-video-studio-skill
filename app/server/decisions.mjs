@@ -9,7 +9,20 @@ import {
 } from "../../lib/google-drive-state.mjs";
 
 const allowedActions = new Set(["approve", "revise", "block", "no_action", ""]);
-const allowedWorkflowSteps = new Set(["topic_selected", "assigned_recording", "material_reviewed", "editing", "cover_done", ""]);
+const allowedWorkflowSteps = new Set([
+  "topic_selected",
+  "ai_video_production_requested",
+  "assigned_recording",
+  "material_reviewed",
+  "editing",
+  "delivery_requested",
+  "cover_done",
+  "",
+]);
+
+const normalizeProductionEngine = (value) => (value === "remotion" ? "remotion" : "hyperframes");
+
+const normalizeBrandProfile = (value) => (value === "buda" ? "buda" : "project");
 
 const payloadValue = (payload, previous, key) =>
   Object.prototype.hasOwnProperty.call(payload, key) ? payload[key] || "" : previous[key] || "";
@@ -132,6 +145,8 @@ export const saveDecision = async (payload) => {
         ? payload.published_links
         : previous.published_links || {},
     distribution_copy: distributionCopy,
+    production_engine: normalizeProductionEngine(payload.production_engine || previous.production_engine),
+    brand_profile: normalizeBrandProfile(payload.brand_profile || previous.brand_profile),
     workflow_step: payload.workflow_step || previous.workflow_step || "",
     distribution_approvals: distributionApprovals,
     workflow_done: workflowDone,

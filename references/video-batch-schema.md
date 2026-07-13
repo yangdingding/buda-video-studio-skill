@@ -37,3 +37,14 @@ Required item fields:
 - `execution`
 
 The local app may store user edits and approvals in `app/.cache/decisions.json`.
+
+Decision fields used by production handoffs:
+
+- `production_engine`: `hyperframes` or `remotion`.
+- `brand_profile`: `project` for a product-owned visual system or `buda` for the existing Buda cover system.
+- `workflow_step`: `ai_video_production_requested` creates an AI-video handoff; `delivery_requested` creates a post-production delivery handoff.
+
+Execution handoffs are local, reviewable Markdown files:
+
+- `app/.cache/production/<video>.md`: script, source evidence, selected engine, required AI package, and `buda-video-delivery covers` instructions.
+- `app/.cache/delivery/<video>.md`: post-production inputs, channel contract, Shorts policy, and `buda-video-delivery publish` instructions.

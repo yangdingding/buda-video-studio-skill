@@ -1,11 +1,12 @@
 #!/usr/bin/env node
+import { basename } from "node:path";
 import { createDataReader } from "../lib/data-reader/index.mjs";
 import { loadConfig } from "../lib/config.mjs";
 import { currentBatchPath, decisionsPath } from "../lib/paths.mjs";
 import { readJson, withLock, writeJson } from "../lib/common.mjs";
 import { readTopicDataSourceItems, topicDataSourceAvailable } from "../lib/topics-data-source.mjs";
 
-const isCli = import.meta.url === `file://${process.argv[1]}`;
+const isCli = basename(process.argv[1] || "") === "generate_batch.mjs";
 
 const countMetrics = (items) =>
   items.reduce(

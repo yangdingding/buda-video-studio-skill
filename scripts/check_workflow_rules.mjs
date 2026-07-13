@@ -9,6 +9,7 @@ const rulesSource = await readFile(join(root, "references/video-rules.md"), "utf
 const skillSource = await readFile(join(root, "SKILL.md"), "utf8");
 
 const requiredAppRule = 'if (item.stage === "editing" || decision.workflow_step === "editing") return "editing";';
+const requiredHandoffRule = 'if (decision.workflow_step === "delivery_requested") return "editing";';
 const forbiddenAppRule =
   'return hasCoverAsset(item) || decision.workflow_step === "cover_done" ? "editing" : "cover_generation";';
 
@@ -16,6 +17,10 @@ const checks = [
   {
     ok: appSource.includes(requiredAppRule),
     message: "app workflow keeps manually started post-production in the editing queue.",
+  },
+  {
+    ok: appSource.includes(requiredHandoffRule),
+    message: "app workflow keeps a generated delivery handoff in the editing queue.",
   },
   {
     ok: !appSource.includes(forbiddenAppRule),

@@ -15,6 +15,7 @@ const blockedPatterns = [
 ];
 
 const allowedSecretNamedFiles = new Set(["scripts/auth_google_drive.mjs"]);
+const ignoredRuntimeDirectories = new Set(["app/.cache"]);
 
 const walk = async (dir) => {
   const entries = await readdir(dir, { withFileTypes: true });
@@ -22,6 +23,10 @@ const walk = async (dir) => {
   for (const entry of entries) {
     if (entry.name === ".git") continue;
     const fullPath = join(dir, entry.name);
+    const rel = relative(root, fullPath);
+    if (ignoredRuntimeDirectories.has(rel) || [...ignoredRuntimeDirectories].some((path) => rel.startsWith(`${path}/`))) {
+      continue;
+    }
     if (entry.isDirectory()) {
       files.push(...(await walk(fullPath)));
     } else {

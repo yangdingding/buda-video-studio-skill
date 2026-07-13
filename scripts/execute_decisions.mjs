@@ -1,14 +1,23 @@
 #!/usr/bin/env node
 import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import {
   briefsDir,
   currentBatchPath,
+  deliveryDir,
   decisionsPath,
   distributionDir,
   executionReportPath,
+  productionDir,
 } from "../lib/paths.mjs";
-import { readJson, slugify, withLock, writeJson } from "../lib/common.mjs";
+import { readJson, withLock, writeJson } from "../lib/common.mjs";
+import { loadConfig } from "../lib/config.mjs";
+import {
+  handoffBaseName,
+  handoffKind,
+  renderAiVideoProductionHandoff,
+  renderPostProductionDeliveryHandoff,
+} from "../lib/production-handoff.mjs";
 
 const renderBrief = (item, decision) => `# ${item.title}
 
@@ -122,21 +131,31 @@ ${renderDistributionCopy(item, decision) || "No platform copy provided."}
 Use the configured Buda CTA unless the reviewer requested another CTA.
 `;
 
-const main = async () => {
-  await withLock("Executing approved video decisions", async () => {
+export const executeApprovedDecisions = async ({ itemIds = [] } = {}) =>
+  withLock("Executing approved video decisions", async () => {
     const batch = await readJson(currentBatchPath);
     if (!batch) {
       throw new Error(`Missing batch file: ${currentBatchPath}`);
     }
 
+    const requestedIds = new Set(itemIds.filter(Boolean));
+    const targetItems = requestedIds.size ? batch.items.filter((item) => requestedIds.has(item.id)) : batch.items;
+    if (requestedIds.size && targetItems.length === 0) {
+      throw new Error("No matching video item was found for the requested handoff.");
+    }
+
     const decisionsFile = await readJson(decisionsPath, { decisions: {} });
     const decisions = decisionsFile.decisions || {};
+    const { config } = await loadConfig();
+    const production = config.production || {};
     const results = [];
 
     await mkdir(briefsDir, { recursive: true });
     await mkdir(distributionDir, { recursive: true });
+    await mkdir(productionDir, { recursive: true });
+    await mkdir(deliveryDir, { recursive: true });
 
-    for (const item of batch.items) {
+    for (const item of targetItems) {
       const decision = decisions[item.id] || item.decision || {};
       if (decision.action !== "approve") {
         results.push({
@@ -149,9 +168,43 @@ const main = async () => {
         continue;
       }
 
-      const baseName = `${item.ref.replace(/\s+/g, "-").toLowerCase()}-${slugify(item.title)}`;
+      const baseName = handoffBaseName(item);
       const briefPath = join(briefsDir, `${baseName}.md`);
       const distributionPath = join(distributionDir, `${baseName}.md`);
+      const kind = handoffKind(decision);
+
+      if (kind === "ai_video_production") {
+        const productionPath = join(productionDir, `${baseName}.md`);
+        await writeFile(productionPath, renderAiVideoProductionHandoff({ item, decision, production }), "utf8");
+        results.push({
+          id: item.id,
+          ref: item.ref,
+          title: item.title,
+          status: "executed",
+          kind,
+          reason: "Generated an AI video production handoff for the selected render engine and covers mode.",
+          outputs: { production: productionPath },
+          executed_at: new Date().toISOString(),
+        });
+        continue;
+      }
+
+      if (kind === "post_production_delivery") {
+        const deliveryPath = join(deliveryDir, `${baseName}.md`);
+        await writeFile(deliveryPath, renderPostProductionDeliveryHandoff({ item, decision, production }), "utf8");
+        await writeFile(distributionPath, renderDistribution(item, decision), "utf8");
+        results.push({
+          id: item.id,
+          ref: item.ref,
+          title: item.title,
+          status: "executed",
+          kind,
+          reason: "Generated a post-production delivery handoff and editable distribution checklist.",
+          outputs: { delivery: deliveryPath, distribution: distributionPath },
+          executed_at: new Date().toISOString(),
+        });
+        continue;
+      }
 
       await writeFile(briefPath, renderBrief(item, decision), "utf8");
       await writeFile(distributionPath, renderDistribution(item, decision), "utf8");
@@ -161,6 +214,7 @@ const main = async () => {
         ref: item.ref,
         title: item.title,
         status: "executed",
+        kind: "post_production_brief",
         reason: "Generated local post-production brief and distribution checklist.",
         outputs: {
           brief: briefPath,
@@ -179,13 +233,19 @@ const main = async () => {
     };
 
     await writeJson(executionReportPath, report);
-    process.stdout.write(
-      `Execution report written: ${executionReportPath}\nExecuted ${results.filter((result) => result.status === "executed").length} approved item(s).\n`
-    );
+    return report;
   });
+
+const main = async () => {
+  const report = await executeApprovedDecisions();
+  process.stdout.write(
+    `Execution report written: ${executionReportPath}\nExecuted ${report.results.filter((result) => result.status === "executed").length} approved item(s).\n`
+  );
 };
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+if (basename(process.argv[1] || "") === "execute_decisions.mjs") {
+  main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}

@@ -97,6 +97,16 @@ topic_sources:
   # Avoid committing personal home-directory or local Drive sync paths here.
   csv_path: ""
 
+production:
+  default_engine: "hyperframes"
+  default_brand_profile: "project"
+  video_workspace_repository: "vikadata/videos"
+  delivery_skill: "buda-video-delivery"
+  script_folder_name: "Script"
+  ai_video_folder_name: "Remotion"
+  post_folder_name: "Post"
+  distribution_folder_name: "Distribution"
+
 video_rules:
   # Pre-recording AI package checks: script/storyboard, HyperFrames/Remotion
   # AI video with voice+subtitles, and the final cover. Human screen recording

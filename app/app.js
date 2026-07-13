@@ -460,8 +460,18 @@ const recordingStatusLabel = (item) => {
 
 const hasManualProductionPlan = (item) => {
   const decision = currentDecision(item);
-  return Boolean(["assigned_recording", "ai_video_approved"].includes(decision.workflow_step) || decision.owner || decision.due_date || item.owner || item.due_date);
+  return Boolean(
+    ["ai_video_production_requested", "assigned_recording", "ai_video_approved"].includes(decision.workflow_step) ||
+      decision.owner ||
+      decision.due_date ||
+      item.owner ||
+      item.due_date
+  );
 };
+
+const productionEngine = (item) => (currentDecision(item).production_engine === "remotion" ? "remotion" : "hyperframes");
+
+const brandProfile = (item) => (currentDecision(item).brand_profile === "buda" ? "buda" : "project");
 
 const hasAnySourceAsset = (item) => (item.source_assets || []).length > 0;
 
@@ -770,9 +780,12 @@ const workflowQueue = (item) => {
   const coverRequired = selectedOutputsRequireCover(item);
   if (hasRequiredChannelExports(item) && (!coverRequired || coverReady)) return "distribution_confirm";
   if (hasChannelExport(item) && coverRequired && !coverReady) return "cover_generation";
+  if (decision.workflow_step === "delivery_requested") return "editing";
   if (item.stage === "editing" || decision.workflow_step === "editing") return "editing";
   if (item.stage === "idea") {
-    if (decision.workflow_step === "topic_selected" || hasManualProductionPlan(item)) return aiVideoReady(item) ? "waiting_upload" : "assignment";
+    if (["topic_selected", "ai_video_production_requested"].includes(decision.workflow_step) || hasManualProductionPlan(item)) {
+      return aiVideoReady(item) ? "waiting_upload" : "assignment";
+    }
     return decision.workflow_step === "topic_selected" ? "assignment" : "topic_board";
   }
   if (readyForHumanRecording(item)) return "recording";
@@ -812,11 +825,11 @@ const nextStepLabel = (item) => {
   }
   return ({
     topic_board: "确认选题和剧本是否进入 AI 视频制作",
-    assignment: "等待 HyperFrames/Remotion 渲染导出 AI 视频",
+    assignment: "创建 AI 制作任务后，由 HyperFrames/Remotion 渲染 AI 视频与 Cover",
     recording: "AI 视频已确认，等待人类录屏",
     material_review: "确认录屏素材后交给后期剪辑",
     edit_output: "交给后期开始剪辑导出",
-    editing: "等待后期导出各渠道视频",
+    editing: "生成后期交付任务，完成渠道视频、Shorts 和分发资料",
     cover_generation: "根据脚本调用封面 skill 制作封面",
     distribution_confirm: "Kelly 和 Kelvin 都确认完成状态",
     done: "流程已完成",
@@ -842,12 +855,12 @@ const detailTitle = (item) =>
 const detailDescription = (item) =>
   ({
     topic_board: "选题里已经包含剧本；先确认方向和剧本是否进入 AI 视频制作。",
-    assignment: "HyperFrames/Remotion 正在根据剧本生成并导出 AI 视频。",
+    assignment: "剧本已经确认；创建 AI 制作任务后，由 HyperFrames/Remotion 生成 AI 视频和 Cover。",
     recording: "AI 视频已确认，开始分配或等待人类录屏。",
     waiting_upload: "AI 视频已经可以预览；确认画面、语音、字幕和 Cover 后再分配录屏。",
     material_review: "录屏素材已出现，确认质量后交给后期剪辑。",
     edit_output: "录屏已确认，准备交给后期开始剪辑导出。",
-    editing: "后期正在剪辑，等所选渠道的视频文件出现。",
+    editing: "后期正在剪辑；生成交付任务后，统一处理渠道视频、Shorts 和分发资料。",
     cover_generation: "导出视频已出现，还需要补齐 Covers 里的最终封面。",
     distribution_confirm: "Kelly 和 Kelvin 都核对同一条完成状态；两个人都确认后才进入已完成。",
     done: "这条视频流程已完成。",
@@ -859,7 +872,7 @@ const approveButtonLabel = (item) => {
   if (queue === "waiting_upload" && aiVideoReady(item)) return "AI 视频确认通过";
   return ({
     topic_board: "确定选题",
-    assignment: "等待 AI 视频",
+    assignment: currentDecision(item).workflow_step === "ai_video_production_requested" ? "AI 制作任务已创建" : "创建 AI 制作任务",
     recording: "等待录屏",
     waiting_upload: "等待 AI 视频",
     material_review: "进入后期",
@@ -1101,12 +1114,14 @@ const productionMetaHtml = (item, locked) => {
   const owner = productionOwner(item) === "未分配" ? "" : productionOwner(item);
   const dueDate = productionDueDate(item);
   const recordingStatus = recordingStatusLabel(item);
+  const engine = productionEngine(item);
+  const profile = brandProfile(item);
 
   return `
     <section class="section compact">
       <div class="section-title">
         <h4>生产信息</h4>
-        <p>${queue === "topic_board" ? "选题里已经带剧本；确认后进入 AI 视频制作。" : "记录负责人、交付时间和最后录屏进度。"}</p>
+        <p>${queue === "topic_board" ? "选题里已经带剧本；确认后进入 AI 视频制作。" : queue === "assignment" ? "选择渲染引擎和品牌规则，再生成 AI 制作任务。" : "记录负责人、交付时间和最后录屏进度。"}</p>
       </div>
       <div class="production-form">
         <label>
@@ -1129,6 +1144,24 @@ const productionMetaHtml = (item, locked) => {
             ${["未分配", "AI 视频制作中", "待录屏", "录制中", "已上传"].map((value) => `<option value="${escapeHtml(value)}" ${value === recordingStatus ? "selected" : ""}>${escapeHtml(value)}</option>`).join("")}
           </select>
         </label>
+        ${
+          queue === "assignment"
+            ? `<label>
+                <span>制作引擎</span>
+                <select id="productionEngine" ${locked ? "disabled" : ""}>
+                  <option value="hyperframes" ${engine === "hyperframes" ? "selected" : ""}>HyperFrames</option>
+                  <option value="remotion" ${engine === "remotion" ? "selected" : ""}>Remotion</option>
+                </select>
+              </label>
+              <label>
+                <span>品牌封面</span>
+                <select id="brandProfile" ${locked ? "disabled" : ""}>
+                  <option value="project" ${profile === "project" ? "selected" : ""}>项目品牌（通用）</option>
+                  <option value="buda" ${profile === "buda" ? "selected" : ""}>Buda 品牌</option>
+                </select>
+              </label>`
+            : ""
+        }
       </div>
     </section>`;
 };
@@ -2583,6 +2616,16 @@ const renderDetail = () => {
             ? `<button class="action-button primary" data-action="${escapeHtml(decision.action || "approve")}" ${locked ? "disabled" : ""} title="保存已发布链接">保存链接</button>`
             : `<button class="action-button primary" data-action="approve" ${approveDisabled ? "disabled" : ""} title="${queue === "recording" ? "录屏上传后会进入后期确认" : queue === "waiting_upload" ? "剧本、AI 视频和 Cover 齐了才能确认通过" : queue === "editing" ? "等渠道导出视频出现后自动进入下一步" : queue === "distribution_confirm" ? "保存当前勾选的分发确认；Kelly 和 Kelvin 都确认后才进入已完成" : isWorkflowDone(item) ? "这条视频已确认完成" : "确认进入下一步"}">${escapeHtml(approveButtonLabel(item))}</button>`
         }
+        ${
+          queue === "assignment"
+            ? `<button class="action-button primary" data-action="approve" data-workflow-step="ai_video_production_requested" data-execute-handoff="true" ${locked ? "disabled" : ""} title="生成 HyperFrames 或 Remotion 的 AI 制作任务，并调用统一封面交付模式">${currentDecision(item).workflow_step === "ai_video_production_requested" ? "重新生成 AI 制作任务" : "生成 AI 制作任务"}</button>`
+            : ""
+        }
+        ${
+          queue === "editing"
+            ? `<button class="action-button primary" data-action="approve" data-workflow-step="delivery_requested" data-execute-handoff="true" ${locked ? "disabled" : ""} title="生成统一后期交付任务，包含渠道视频、Shorts 和分发资料">${currentDecision(item).workflow_step === "delivery_requested" ? "重新生成后期交付任务" : "生成后期交付任务"}</button>`
+            : ""
+        }
         ${queue === "done" ? "" : `<button class="action-button" data-save-only="true" data-action="${escapeHtml(decision.action || "")}" ${locked ? "disabled" : ""} title="只保存负责人、交付时间、录制状态和备注，不推进流程">保存信息</button>`}
         <details class="drawer-more-actions">
           <summary>更多</summary>
@@ -2615,12 +2658,23 @@ const renderDetail = () => {
       try {
         const result = await saveDecision(item.id, button.dataset.action, {
           saveOnly: button.dataset.saveOnly === "true",
+          workflowStep: button.dataset.workflowStep || "",
           reload: false,
         });
         if (result?.ok) {
-          button.textContent = "保存成功";
+          if (button.dataset.executeHandoff === "true") {
+            button.textContent = "生成任务中…";
+            setActionFeedback("生成任务中…", "saving");
+            const handoff = await executeHandoff(item.id);
+            const handoffResult = handoff.results?.find((entry) => entry.id === item.id && entry.status === "executed");
+            if (!handoffResult) throw new Error("任务文件没有生成。");
+            button.textContent = "任务已生成";
+            setActionFeedback(handoffResult.kind === "ai_video_production" ? "AI 制作任务已生成" : "后期交付任务已生成", "success");
+          } else {
+            button.textContent = "保存成功";
+            setActionFeedback("已保存", "success");
+          }
           button.dataset.state = "success";
-          setActionFeedback("已保存", "success");
           await sleep(1600);
           editing = wasEditing;
           await loadState({ force: true });
@@ -2855,7 +2909,7 @@ const saveDecision = async (id, action, options = {}) => {
   const workflowDone = Boolean(
     item && effectiveAction === "approve" && queue === "distribution_confirm" && hasDistributionApprovals(nextDistributionDecision)
   );
-  const workflowStep =
+  const derivedWorkflowStep =
     effectiveAction === "approve" && queue === "topic_board"
       ? "topic_selected"
       : effectiveAction === "approve" && queue === "assignment"
@@ -2869,6 +2923,7 @@ const saveDecision = async (id, action, options = {}) => {
             : effectiveAction === "approve" && queue === "cover_generation"
               ? "cover_done"
               : decision.workflow_step || "";
+  const workflowStep = options.workflowStep || derivedWorkflowStep;
   const selectedRecordingStatus = inputValue("#recordingStatus", recordingStatusLabel(item));
   const recordingStatus =
     effectiveAction === "approve" && queue === "waiting_upload" && (!selectedRecordingStatus || selectedRecordingStatus === "未分配")
@@ -2895,6 +2950,8 @@ const saveDecision = async (id, action, options = {}) => {
       asset_overrides: assetOverrides,
       published_links: publishedLinkInputs.length ? publishedLinks : previousPublishedLinks,
       distribution_copy: distributionCopy,
+      production_engine: inputValue("#productionEngine", decision.production_engine || "hyperframes"),
+      brand_profile: inputValue("#brandProfile", decision.brand_profile || "project"),
       distribution_approvals: nextDistributionApprovals,
       workflow_step: workflowStep,
       workflow_done: workflowDone || Boolean(decision.workflow_done && hasDistributionApprovals(nextDistributionDecision)),
@@ -2936,6 +2993,19 @@ const saveDecision = async (id, action, options = {}) => {
     await loadState({ force: true });
   }
   return { ok: true, decision: result.decision };
+};
+
+const executeHandoff = async (id) => {
+  const response = await fetch("/api/execute", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ id }),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error || "Could not generate the production handoff.");
+  }
+  return (await response.json()).report || { results: [] };
 };
 
 const renderTop = () => {
