@@ -457,22 +457,14 @@ const recordingStatusLabel = (item) => {
   return "未分配";
 };
 
-const hasManualProductionPlan = (item) => {
+const hasAiProductionRequest = (item) => {
   const decision = currentDecision(item);
-  return Boolean(
-    ["ai_video_production_requested", "assigned_recording", "ai_video_approved"].includes(decision.workflow_step) ||
-      decision.owner ||
-      decision.due_date ||
-      item.owner ||
-      item.due_date
-  );
+  return ["topic_selected", "ai_video_production_requested"].includes(decision.workflow_step);
 };
 
 const productionEngine = (item) => (currentDecision(item).production_engine === "remotion" ? "remotion" : "hyperframes");
 
 const brandProfile = (item) => (currentDecision(item).brand_profile === "buda" ? "buda" : "project");
-
-const hasAnySourceAsset = (item) => (item.source_assets || []).length > 0;
 
 const riskLabel = (risk) =>
   ({
@@ -682,8 +674,6 @@ const missingRequiredLabels = (item) => missingRequiredChecks(item).map((check) 
 
 const missingRequiredLabelText = (item) => missingRequiredLabels(item).join("、");
 
-const allRequiredReady = (item) => requiredChecks(item).length > 0 && requiredChecks(item).every((check) => check.ready);
-
 const aiVideoReady = (item) =>
   hasReadyCheck(item, "voiceover") && hasReadyCheck(item, "draft_video") && (hasReadyCheck(item, "cover") || hasCoverAsset(item));
 
@@ -781,12 +771,8 @@ const workflowQueue = (item) => {
   if (hasChannelExport(item) && coverRequired && !coverReady) return "editing";
   if (decision.workflow_step === "delivery_requested") return "editing";
   if (item.stage === "editing" || decision.workflow_step === "editing") return "editing";
-  if (item.stage === "idea") {
-    if (["topic_selected", "ai_video_production_requested"].includes(decision.workflow_step) || hasManualProductionPlan(item)) {
-      return aiVideoReady(item) ? "waiting_upload" : "assignment";
-    }
-    return decision.workflow_step === "topic_selected" ? "assignment" : "topic_board";
-  }
+  if (hasAiProductionRequest(item)) return aiVideoReady(item) ? "waiting_upload" : "assignment";
+  if (item.stage === "idea") return "topic_board";
   if (readyForHumanRecording(item)) return "recording";
   if (aiVideoApproved(item) && screenRecordingReady(item)) {
     if (decision.workflow_step === "material_reviewed") return "edit_output";
@@ -794,8 +780,8 @@ const workflowQueue = (item) => {
     return "edit_output";
   }
   if (aiVideoReady(item)) return "waiting_upload";
-  if (!hasAnySourceAsset(item) && hasManualProductionPlan(item)) return "assignment";
-  if (!allRequiredReady(item)) return "assignment";
+  if (item.stage === "script_ready") return "topic_board";
+  if (item.stage === "assets_ready") return "material_review";
   if (decision.workflow_step === "material_reviewed") return "edit_output";
   if (decision.action !== "approve") return "material_review";
   return "edit_output";

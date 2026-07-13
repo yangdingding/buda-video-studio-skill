@@ -75,6 +75,7 @@ Automatic progress comes from Drive evidence:
 - `后期剪辑中` appears when post-production has been manually started.
 - A missing final cover never creates a separate queue. It keeps the item in `后期剪辑中` until the AI production package's `Covers` output is restored.
 - `待确认分发` appears after the selected channel exports and final cover exist.
+- `AI 视频制作中` is explicit-only: a folder enters it only after `topic_selected` or `ai_video_production_requested`. Legacy Drive-only folders do not enter AI production automatically; `script_ready` stays in `选题表`, and `assets_ready` goes to `待进入后期`.
 
 Manual progress comes from the local UI and is stored in `buda-video-status.json` when Drive write access is available:
 
