@@ -12,6 +12,7 @@ Author: AI Assistant
 - Added explicit AI-production and post-production delivery tasks to the Buda Video Studio workflow.
 - Captured the render engine and cover brand profile in the decision state.
 - Generated reviewable local handoffs that delegate covers and delivery to `buda-video-delivery`.
+- Ordered AI review before recording and removed the legacy separate cover-production queue.
 - Kept rendering, Drive export, and social publication as evidence-based controlled steps.
 
 ## Testing

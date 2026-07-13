@@ -10,8 +10,7 @@ const skillSource = await readFile(join(root, "SKILL.md"), "utf8");
 
 const requiredAppRule = 'if (item.stage === "editing" || decision.workflow_step === "editing") return "editing";';
 const requiredHandoffRule = 'if (decision.workflow_step === "delivery_requested") return "editing";';
-const forbiddenAppRule =
-  'return hasCoverAsset(item) || decision.workflow_step === "cover_done" ? "editing" : "cover_generation";';
+const forbiddenCoverQueue = "cover_" + "generation";
 
 const checks = [
   {
@@ -23,8 +22,8 @@ const checks = [
     message: "app workflow keeps a generated delivery handoff in the editing queue.",
   },
   {
-    ok: !appSource.includes(forbiddenAppRule),
-    message: "app workflow no longer routes manual editing without cover to 待制作封面.",
+    ok: !appSource.includes(forbiddenCoverQueue),
+    message: "app workflow does not expose a separate cover queue.",
   },
   {
     ok: rulesSource.includes("The app keeps manually started work in the `editing` queue until channel export evidence appears."),

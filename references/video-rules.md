@@ -33,7 +33,7 @@ These names are configurable in `video_library`.
 Rules are evaluated from highest to lowest priority:
 
 1. `distribution_ready` + `to_approve`: the selected YouTube language exports, one `视频号` or selected social export, and final cover output exist. By default the app expects both YouTube Chinese and English, but a single-language project can uncheck the unused YouTube language in `输出渠道`; then one YouTube export can be enough. Shorts is optional: show it when present, but do not block distribution confirmation when absent. The next human task is `待确认分发`.
-2. `distribution_ready` + `needs_review`: the selected channel exports exist, but final cover output is missing. The next human task is `待制作封面`.
+2. `distribution_ready` + `needs_review`: the selected channel exports exist, but the final cover output is missing. Keep the item in `后期剪辑中`; restore the cover as part of the AI production package rather than creating a separate cover queue.
 3. `editing`: post-production has been manually started, but the required channel outputs are not complete yet. The app keeps manually started work in the `editing` queue until channel export evidence appears.
 4. `ready_for_edit`: the approved AI video package and human screen recording both exist. The next human task is to confirm entry into post-production.
 5. `render_ready`: the AI video package exists: script/storyboard, AI video, and final cover. The next human task is AI video review.
@@ -51,8 +51,7 @@ The app displays a production workflow on top of the deterministic file-stage ru
 4. `待录制`: the AI video has been approved; wait for the final human screen recording.
 5. `待进入后期`: the screen recording exists; confirm it can enter post-production.
 6. `后期剪辑中`: post-production has started, but required channel export video files are not complete yet.
-7. `待制作封面`: channel export video files exist, but final cover outputs are still missing from `Covers`/`封面`.
-8. `待确认分发`: the selected channel exports and final cover outputs exist, and distribution needs confirmation.
+7. `待确认分发`: the selected channel exports and final cover outputs exist, and distribution needs confirmation.
 
 The first queues are advanced by local UI decisions only. They do not mutate Google Drive.
 
@@ -74,7 +73,7 @@ Automatic progress comes from Drive evidence:
 - `待录制` appears only after a human approves the AI video package.
 - `待进入后期` appears when an approved AI video package and human screen recording are both present.
 - `后期剪辑中` appears when post-production has been manually started.
-- `待制作封面` appears when channel export evidence exists but no final cover exists in `Covers`.
+- A missing final cover never creates a separate queue. It keeps the item in `后期剪辑中` until the AI production package's `Covers` output is restored.
 - `待确认分发` appears after the selected channel exports and final cover exist.
 
 Manual progress comes from the local UI and is stored in `buda-video-status.json` when Drive write access is available:

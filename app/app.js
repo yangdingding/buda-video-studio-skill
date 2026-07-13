@@ -3,11 +3,10 @@ const filters = [
   ["all", "全部"],
   ["topic_board", "选题表"],
   ["assignment", "AI 视频制作中"],
-  ["recording", "待录制"],
   ["waiting_upload", "待确认 AI 视频"],
+  ["recording", "待录制"],
   ["material_review", "待进入后期"],
   ["editing", "后期剪辑中"],
-  ["cover_generation", "待制作封面"],
   ["distribution_confirm", "待确认分发"],
   ["done", "已完成"],
   ["blocked", "阻塞"],
@@ -779,7 +778,7 @@ const workflowQueue = (item) => {
   const coverReady = hasCoverAsset(item) || decision.workflow_step === "cover_done";
   const coverRequired = selectedOutputsRequireCover(item);
   if (hasRequiredChannelExports(item) && (!coverRequired || coverReady)) return "distribution_confirm";
-  if (hasChannelExport(item) && coverRequired && !coverReady) return "cover_generation";
+  if (hasChannelExport(item) && coverRequired && !coverReady) return "editing";
   if (decision.workflow_step === "delivery_requested") return "editing";
   if (item.stage === "editing" || decision.workflow_step === "editing") return "editing";
   if (item.stage === "idea") {
@@ -811,7 +810,6 @@ const workflowLabel = (item) =>
     material_review: "待进入后期",
     edit_output: "待进入后期",
     editing: "后期剪辑中",
-    cover_generation: "待制作封面",
     distribution_confirm: "待确认分发",
     done: "已完成",
     blocked: "阻塞",
@@ -829,8 +827,7 @@ const nextStepLabel = (item) => {
     recording: "AI 视频已确认，等待人类录屏",
     material_review: "确认录屏素材后交给后期剪辑",
     edit_output: "交给后期开始剪辑导出",
-    editing: "生成后期交付任务，完成渠道视频、Shorts 和分发资料",
-    cover_generation: "根据脚本调用封面 skill 制作封面",
+    editing: "生成后期交付任务，完成渠道视频、Shorts、分发资料并补齐 AI 制作包中的 Cover",
     distribution_confirm: "Kelly 和 Kelvin 都确认完成状态",
     done: "流程已完成",
     blocked: "先处理阻塞原因",
@@ -846,7 +843,6 @@ const detailTitle = (item) =>
     material_review: "进入后期确认",
     edit_output: "进入后期确认",
     editing: "后期剪辑中",
-    cover_generation: "封面制作",
     distribution_confirm: "双人完成确认",
     done: "已完成",
     blocked: "阻塞处理",
@@ -860,8 +856,7 @@ const detailDescription = (item) =>
     waiting_upload: "AI 视频已经可以预览；确认画面、语音、字幕和 Cover 后再分配录屏。",
     material_review: "录屏素材已出现，确认质量后交给后期剪辑。",
     edit_output: "录屏已确认，准备交给后期开始剪辑导出。",
-    editing: "后期正在剪辑；生成交付任务后，统一处理渠道视频、Shorts 和分发资料。",
-    cover_generation: "导出视频已出现，还需要补齐 Covers 里的最终封面。",
+    editing: "后期正在剪辑；统一处理渠道视频、Shorts、分发资料，并确保 AI 制作包里的 Cover 已齐。",
     distribution_confirm: "Kelly 和 Kelvin 都核对同一条完成状态；两个人都确认后才进入已完成。",
     done: "这条视频流程已完成。",
     blocked: "先处理阻塞原因。",
@@ -878,7 +873,6 @@ const approveButtonLabel = (item) => {
     material_review: "进入后期",
     edit_output: "开始剪辑",
     editing: "等待导出",
-    cover_generation: "封面已完成",
     distribution_confirm: "确认分发",
     done: "已完成",
     blocked: "已阻塞",
@@ -1274,7 +1268,7 @@ const recordingBriefHtml = (item) => {
 
 const editBriefHtml = (item) => {
   const queue = workflowQueue(item);
-  if (["topic_board", "assignment", "waiting_upload", "cover_generation", "distribution_confirm", "done"].includes(queue)) return "";
+  if (["topic_board", "assignment", "waiting_upload", "distribution_confirm", "done"].includes(queue)) return "";
   return `
     <section class="section">
       <div class="section-title">
@@ -1560,7 +1554,7 @@ const publishOutputRowHtml = (output, selectedOutputs, publishedLinks, locked) =
 
 const outputsHtml = (item, selectedOutputs, locked) => {
   const queue = workflowQueue(item);
-  if (!["material_review", "edit_output", "editing", "cover_generation", "distribution_confirm", "done"].includes(queue)) return "";
+  if (!["material_review", "edit_output", "editing", "distribution_confirm", "done"].includes(queue)) return "";
   const title = queue === "done" ? "已交付渠道" : "输出渠道";
   const description =
     queue === "done"
@@ -1722,12 +1716,6 @@ const detailBodyHtml = (item, assetsByType, selectedOutputs, decision, locked) =
         "录屏画面是否清楚，是否有敏感信息",
         "后期是否能基于录屏和 AI 视频继续剪辑",
       ])}`,
-    cover_generation: `
-      ${scriptSection}
-      ${coverCopyHtml(item, decision, locked)}
-      ${outputsHtml(item, selectedOutputs, locked)}
-      ${assetsHtml(item, hasAssets(exportAssets) ? exportAssets : {})}
-      ${archivedAssetsHtml(item, sourceCoreAssets)}`,
     edit_output: `
       ${scriptSection}
       ${editBriefHtml(item)}
@@ -1743,7 +1731,7 @@ const detailBodyHtml = (item, assetsByType, selectedOutputs, decision, locked) =
       ${queueGuideHtml("后期剪辑中", "后期已经开始处理录屏和 AI 视频，等待导出视频上传到渠道文件夹。", [
         `等待 ${channelRequirementLabel(item)} 文件夹出现导出视频`,
         "Shorts 有就一起确认，没有也不阻断待确认分发",
-        "导出视频和 Covers 最终封面都齐了会自动进入待确认分发",
+        "导出视频与 AI 制作包里的 Covers 都齐了会自动进入待确认分发",
       ])}
       ${archivedAssetsHtml(item, coverAssets)}`,
     distribution_confirm: `
@@ -1964,7 +1952,6 @@ const dashboardSectionEmoji = {
   待录制: "🎥",
   待进入后期: "🚪",
   后期剪辑中: "✂️",
-  待制作封面: "🖼️",
   待确认分发: "✅",
   本期计划要发: "🗓️",
   "已完成：发在哪里": "📍",
@@ -2035,12 +2022,11 @@ const renderDashboard = () => {
   const missingItems = dashboardItems((item) => workflowQueue(item) === "waiting_upload");
   const materialReviewItems = dashboardItems((item) => ["material_review", "edit_output"].includes(workflowQueue(item)));
   const editingItems = dashboardItems((item) => workflowQueue(item) === "editing");
-  const coverItems = dashboardItems((item) => workflowQueue(item) === "cover_generation");
   const distributionItems = dashboardItems((item) => workflowQueue(item) === "distribution_confirm");
   const doneItems = dashboardItems((item) => workflowQueue(item) === "done");
   const blockedItems = dashboardItems((item) => workflowQueue(item) === "blocked");
   const publishedItems = dashboardItems((item) => workflowQueue(item) === "done" || Object.keys(publishedLinksFor(item)).length > 0);
-  const plannedPublishItems = dashboardItems((item) => ["distribution_confirm", "cover_generation", "editing"].includes(workflowQueue(item)));
+  const plannedPublishItems = dashboardItems((item) => ["distribution_confirm", "editing"].includes(workflowQueue(item)));
   const thisWeekOutputItems = dashboardItems((item) => isDueThisWeek(item) && ["material_review", "edit_output"].includes(workflowQueue(item)));
   const publishedLinkCount = publishedItems.reduce(
     (total, item) => total + publishedChannelEntries(item).filter((entry) => entry.url).length,
@@ -2104,14 +2090,6 @@ const renderDashboard = () => {
           detail: (item) => nextStepLabel(item),
         })}
         ${dashboardSectionHtml({
-          title: "待制作封面",
-          count: coverItems.length,
-          sectionItems: coverItems.slice(0, 6),
-          empty: "没有等待制作封面的视频。",
-          meta: () => "待制作封面",
-          detail: (item) => nextStepLabel(item),
-        })}
-        ${dashboardSectionHtml({
           title: "待录制",
           count: recordingItems.length,
           sectionItems: recordingItems.slice(0, 6),
@@ -2154,12 +2132,11 @@ const renderDashboard = () => {
   scheduleDashboardMasonry();
 };
 
-const humanWorkflowQueues = ["topic_board", "assignment", "recording", "waiting_upload", "material_review", "editing", "cover_generation", "distribution_confirm"];
+const humanWorkflowQueues = ["topic_board", "assignment", "waiting_upload", "recording", "material_review", "editing", "distribution_confirm"];
 const executionWorkflowQueues = ["edit_output"];
 const workflowPriority = [
   "blocked",
   "distribution_confirm",
-  "cover_generation",
   "editing",
   "edit_output",
   "material_review",
@@ -2193,7 +2170,6 @@ const primaryActionLabel = (humanItems, blockedItems, executionItems) => {
   if (primaryQueue === "material_review") return "确认录屏素材并交给后期剪辑";
   if (primaryQueue === "edit_output") return "开始后期剪辑";
   if (primaryQueue === "editing") return "等待后期导出所选渠道视频";
-  if (primaryQueue === "cover_generation") return "制作最终封面并上传到 Covers 文件夹";
   if (primaryQueue === "distribution_confirm") return "Kelly 和 Kelvin 都确认同一条完成状态";
   if (executionItems.length) return "已有批准项，等待 skill 执行下一步";
   return "暂无需要你处理的事项";
@@ -2210,7 +2186,6 @@ const primaryActionCountLabel = (humanItems, blockedItems) => {
   if (primaryQueue === "material_review") return "待进入后期";
   if (primaryQueue === "edit_output") return "待进入后期";
   if (primaryQueue === "editing") return "后期剪辑中";
-  if (primaryQueue === "cover_generation") return "待制作封面";
   if (primaryQueue === "distribution_confirm") return "待确认分发";
   return "待人工处理";
 };
@@ -2316,8 +2291,8 @@ const renderMetrics = () => {
   const value = (predicate) => all.filter(predicate).length;
   const cards = [
     ["待确认分发", value((item) => workflowQueue(item) === "distribution_confirm"), "导出和最终封面已齐"],
-    ["待制作封面", value((item) => workflowQueue(item) === "cover_generation"), "有导出，等 Covers"],
     ["待确认 AI 视频", value((item) => workflowQueue(item) === "waiting_upload"), "剧本、AI 视频和 Cover 待确认"],
+    ["AI 视频制作中", value((item) => workflowQueue(item) === "assignment"), "AI 视频与 Cover 一起制作"],
   ];
 
   $("#metrics").innerHTML = cards
@@ -2918,11 +2893,9 @@ const saveDecision = async (id, action, options = {}) => {
           ? "ai_video_approved"
           : effectiveAction === "approve" && queue === "material_review"
           ? "material_reviewed"
-          : effectiveAction === "approve" && queue === "edit_output"
-            ? "editing"
-            : effectiveAction === "approve" && queue === "cover_generation"
-              ? "cover_done"
-              : decision.workflow_step || "";
+        : effectiveAction === "approve" && queue === "edit_output"
+          ? "editing"
+          : decision.workflow_step || "";
   const workflowStep = options.workflowStep || derivedWorkflowStep;
   const selectedRecordingStatus = inputValue("#recordingStatus", recordingStatusLabel(item));
   const recordingStatus =
