@@ -1178,6 +1178,23 @@ const scriptPreviewText = (item) => {
   return summary && !/cloud asset\(s\) found in Google Drive/i.test(summary) ? summary : "";
 };
 
+const scriptDocuments = (item) => {
+  const documents = Array.isArray(item?.script_documents) ? item.script_documents.filter((document) => document?.raw_text) : [];
+  if (documents.length) return documents;
+  const text = scriptPreviewText(item);
+  return text
+    ? [
+        {
+          name: "剧本",
+          path: "",
+          raw_text: text,
+          tables: [],
+          sections: [],
+        },
+      ]
+    : [];
+};
+
 const splitMarkdownTableRow = (line) =>
   line
     .trim()
@@ -1245,6 +1262,145 @@ const scriptStoryboardRows = (text) => {
   return rows;
 };
 
+const parseScriptTablesFromText = (text) => {
+  const lines = String(text || "").split(/\r?\n/);
+  const tables = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    if (!lines[index]?.includes("|") || !isMarkdownSeparatorRow(lines[index + 1] || "")) continue;
+    const headers = splitMarkdownTableRow(lines[index]);
+    const rows = [];
+    let cursor = index + 2;
+    while (cursor < lines.length && lines[cursor]?.includes("|") && String(lines[cursor] || "").trim()) {
+      if (!isMarkdownSeparatorRow(lines[cursor])) {
+        const cells = splitMarkdownTableRow(lines[cursor]);
+        rows.push(headers.map((header, cellIndex) => ({ header, value: cells[cellIndex] || "" })));
+      }
+      cursor += 1;
+    }
+    if (headers.length && rows.length) {
+      tables.push({ title: "分镜脚本", headers, rows, row_count: rows.length });
+      index = cursor - 1;
+    }
+  }
+
+  if (tables.length) return tables;
+
+  const storyboardRows = scriptStoryboardRows(text);
+  if (!storyboardRows.length) return [];
+  return [
+    {
+      title: "分镜脚本",
+      headers: ["分镜", "画面", "台词"],
+      rows: storyboardRows.map((row) => [
+        { header: "分镜", value: row.shot },
+        { header: "画面", value: row.visual },
+        { header: "台词", value: row.spoken },
+      ]),
+      row_count: storyboardRows.length,
+      inferred: true,
+    },
+  ];
+};
+
+const normalizedScriptTables = (document) => {
+  const tables = Array.isArray(document?.tables) ? document.tables.filter((table) => table?.rows?.length) : [];
+  return tables.length ? tables : parseScriptTablesFromText(document?.raw_text || "");
+};
+
+const scriptTableHtml = (table, { className = "script-storyboard-table" } = {}) => {
+  const headers = Array.isArray(table.headers) ? table.headers : [];
+  const rows = Array.isArray(table.rows) ? table.rows : [];
+  if (!headers.length || !rows.length) return "";
+  return `
+    <div class="script-table-wrap">
+      <table class="${escapeHtml(className)}">
+        <thead>
+          <tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr>
+        </thead>
+        <tbody>
+          ${rows
+            .map(
+              (row) => `
+                <tr>
+                  ${headers
+                    .map((header, index) => {
+                      const cell = Array.isArray(row) ? row.find((entry) => entry.header === header) || row[index] : null;
+                      const value = typeof cell === "string" ? cell : cell?.value || "";
+                      return `<td>${escapeHtml(value)}</td>`;
+                    })
+                    .join("")}
+                </tr>`
+            )
+            .join("")}
+        </tbody>
+      </table>
+    </div>`;
+};
+
+const openScriptPreview = (item, index = 0) => {
+  const documents = scriptDocuments(item);
+  const document = documents[index] || documents[0];
+  const modal = $("#scriptPreview");
+  const title = $("#scriptPreviewTitle");
+  const body = $("#scriptPreviewBody");
+  const openLink = $("#scriptPreviewOpenLink");
+  if (!modal || !title || !body || !document) return;
+
+  const tables = normalizedScriptTables(document);
+  const sections = Array.isArray(document.sections) ? document.sections : [];
+  title.textContent = document.name || "脚本 / 分镜";
+  body.innerHTML = `
+    <div class="script-modal-meta">
+      ${document.path ? `<span>${escapeHtml(document.path)}</span>` : ""}
+      <span>${escapeHtml(tables.length ? `${tables.length} 个表格` : "原文")}</span>
+    </div>
+    ${
+      tables.length
+        ? `<div class="script-modal-section">
+            <h4>表格视图</h4>
+            ${tables.map((table) => scriptTableHtml(table)).join("")}
+          </div>`
+        : ""
+    }
+    ${
+      sections.length
+        ? `<div class="script-modal-section">
+            <h4>章节</h4>
+            <div class="script-section-list">
+              ${sections
+                .slice(0, 12)
+                .map(
+                  (section) => `
+                    <article>
+                      <strong>${escapeHtml(section.title)}</strong>
+                      ${section.body ? `<p>${escapeHtml(section.body)}</p>` : ""}
+                    </article>`
+                )
+                .join("")}
+            </div>
+          </div>`
+        : ""
+    }
+    <div class="script-modal-section">
+      <h4>原文</h4>
+      <pre class="script-preview-text script-modal-raw">${escapeHtml(document.raw_text || "")}</pre>
+    </div>`;
+  if (openLink) {
+    openLink.hidden = !document.web_view_link;
+    openLink.href = document.web_view_link || "#";
+  }
+  modal.hidden = false;
+};
+
+const closeScriptPreview = () => {
+  const modal = $("#scriptPreview");
+  const body = $("#scriptPreviewBody");
+  if (!modal) return;
+  modal.hidden = true;
+  if (body) body.innerHTML = "";
+};
+
 const scriptPreviewHtml = (item) => {
   const text = scriptPreviewText(item);
   if (!text) return "";
@@ -1254,6 +1410,9 @@ const scriptPreviewHtml = (item) => {
       <div class="section-title">
         <h4>剧本</h4>
         <p>选题里已经带剧本；确认分镜、画面和台词后进入 AI 视频制作。</p>
+      </div>
+      <div class="script-preview-actions">
+        <button type="button" class="asset-action" data-script-preview-index="0">打开脚本 / 分镜</button>
       </div>
       ${
         rows.length
@@ -2803,6 +2962,11 @@ const renderDetail = () => {
       openAssetPreview(button.dataset.previewFile, button.dataset.previewTitle);
     });
   });
+  document.querySelectorAll("[data-script-preview-index]").forEach((button) => {
+    button.addEventListener("click", () => {
+      openScriptPreview(item, Number(button.dataset.scriptPreviewIndex || 0));
+    });
+  });
   document.querySelectorAll("[data-archived-assets]").forEach((details) => {
     details.addEventListener("toggle", () => {
       const id = details.dataset.archivedAssets;
@@ -3185,6 +3349,7 @@ $("#drawerBackdrop").addEventListener("click", () => {
 });
 
 $("#closeVideoPreview")?.addEventListener("click", closeFilePreview);
+$("#closeScriptPreview")?.addEventListener("click", closeScriptPreview);
 
 $("#videoPreview")?.addEventListener("click", (event) => {
   if (event.target === $("#videoPreview")) {
@@ -3192,8 +3357,18 @@ $("#videoPreview")?.addEventListener("click", (event) => {
   }
 });
 
+$("#scriptPreview")?.addEventListener("click", (event) => {
+  if (event.target === $("#scriptPreview")) {
+    closeScriptPreview();
+  }
+});
+
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
+  if ($("#scriptPreview") && !$("#scriptPreview").hidden) {
+    closeScriptPreview();
+    return;
+  }
   if ($("#videoPreview") && !$("#videoPreview").hidden) {
     closeFilePreview();
     return;

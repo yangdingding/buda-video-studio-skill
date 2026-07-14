@@ -9,7 +9,7 @@
         window.location.replace("http://127.0.0.1:3000/");
       }
     </script>
-    <link rel="stylesheet" href="/styles.css?v=20260714-script-table-fallback" />
+    <link rel="stylesheet" href="/styles.css?v=20260714-script-documents-modal" />
   </head>
   <body>
     <div class="shell">
@@ -92,6 +92,18 @@
         <p class="video-preview-note">使用 Google Drive 官方预览。若无法查看，请确认当前 Google 账号有权限，或在 Drive 中打开。</p>
       </div>
     </div>
-    <script type="module" src="/app.js?v=20260714-script-table-fallback"></script>
+    <div class="script-modal" id="scriptPreview" hidden>
+      <div class="script-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="scriptPreviewTitle">
+        <div class="script-modal-top">
+          <span id="scriptPreviewTitle">脚本 / 分镜</span>
+          <div>
+            <a id="scriptPreviewOpenLink" href="#" target="_blank" rel="noreferrer" hidden>云端打开</a>
+            <button class="script-modal-close" id="closeScriptPreview" aria-label="关闭脚本" title="关闭脚本">×</button>
+          </div>
+        </div>
+        <div class="script-modal-body" id="scriptPreviewBody"></div>
+      </div>
+    </div>
+    <script type="module" src="/app.js?v=20260714-script-documents-modal"></script>
   </body>
 </html>

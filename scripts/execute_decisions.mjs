@@ -19,6 +19,22 @@ import {
   renderPostProductionDeliveryHandoff,
 } from "../lib/production-handoff.mjs";
 
+const renderScriptDocuments = (item) => {
+  const documents = Array.isArray(item.script_documents) ? item.script_documents : [];
+  if (documents.length === 0) return "No script document captured.";
+  return documents
+    .map((document, index) => {
+      const tableCount = Array.isArray(document.tables) ? document.tables.length : 0;
+      return `### ${document.name || `Script ${index + 1}`}
+
+Path: ${document.path || ""}
+Tables: ${tableCount}
+
+${document.raw_text || ""}`;
+    })
+    .join("\n\n");
+};
+
 const renderBrief = (item, decision) => `# ${item.title}
 
 Ref: ${item.ref}
@@ -40,6 +56,10 @@ ${item.summary || "No summary."}
 ## Source Assets
 
 ${item.source_assets.map((asset) => `- ${asset.type}: ${asset.name} (${asset.path})`).join("\n") || "- None"}
+
+## Script / Storyboard
+
+${renderScriptDocuments(item)}
 
 ## Post-production Brief
 

@@ -25,6 +25,7 @@ const requiredItemFields = [
   "proposed_action",
   "reason",
   "source_assets",
+  "script_documents",
   "topic_direction",
   "target_audience",
   "topic_decision",
@@ -64,6 +65,7 @@ const main = async () => {
     ids.add(item.id);
     assert(Array.isArray(item.risk), `Item "${item.id}" risk must be an array.`);
     assert(Array.isArray(item.source_assets), `Item "${item.id}" source_assets must be an array.`);
+    assert(Array.isArray(item.script_documents), `Item "${item.id}" script_documents must be an array.`);
     assert(Array.isArray(item.outputs), `Item "${item.id}" outputs must be an array.`);
   }
 

@@ -28,6 +28,7 @@ Required item fields:
 - `proposed_action`
 - `reason`
 - `source_assets`
+- `script_documents`
 - `topic_direction`
 - `target_audience`
 - `edit_brief`
@@ -37,6 +38,8 @@ Required item fields:
 - `execution`
 
 The local app may store user edits and approvals in `app/.cache/decisions.json`.
+
+`script_documents` stores readable source script files discovered for a video project. Each entry preserves the original Markdown/text (`raw_text`), file metadata, parsed Markdown/pipe tables, and sections so the app and handoff scripts can display 分镜、画面、台词/口播稿 without losing the source wording.
 
 Decision fields used by production handoffs:
 
