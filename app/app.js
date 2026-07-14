@@ -1188,27 +1188,57 @@ const splitMarkdownTableRow = (line) =>
 
 const isMarkdownSeparatorRow = (line) => /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(line);
 
+const isLooseStoryboardRow = (line) => {
+  if (!String(line || "").includes("|") || isMarkdownSeparatorRow(line)) return false;
+  return splitMarkdownTableRow(line).filter(Boolean).length >= 3;
+};
+
+const headerLooksLikeStoryboard = (headers) => {
+  const text = headers.join(" ");
+  return /分镜|镜头|序号|#|时长|时间|画面|场景|台词|旁白|文案|voice|line|visual|scene/i.test(text);
+};
+
 const scriptStoryboardRows = (text) => {
   const lines = String(text || "").split(/\r?\n/);
   const headerIndex = lines.findIndex((line, index) => {
     if (!line.includes("|") || !isMarkdownSeparatorRow(lines[index + 1] || "")) return false;
     const headers = splitMarkdownTableRow(line).join(" ");
-    return /分镜/.test(headers) && /台词|旁白|文案/.test(headers);
+    return headerLooksLikeStoryboard(splitMarkdownTableRow(line));
   });
-  if (headerIndex < 0) return [];
 
-  const headers = splitMarkdownTableRow(lines[headerIndex]);
+  let headers = [];
+  let dataLines = [];
+  if (headerIndex >= 0) {
+    headers = splitMarkdownTableRow(lines[headerIndex]);
+    dataLines = lines.slice(headerIndex + 2).filter((line) => line.includes("|") && !isMarkdownSeparatorRow(line));
+  } else {
+    const looseStart = lines.findIndex(isLooseStoryboardRow);
+    if (looseStart < 0) return [];
+    const looseLines = [];
+    for (const line of lines.slice(looseStart)) {
+      if (!isLooseStoryboardRow(line)) break;
+      looseLines.push(line);
+    }
+    if (looseLines.length < 2) return [];
+    const firstRow = splitMarkdownTableRow(looseLines[0]);
+    const firstRowIsHeader = headerLooksLikeStoryboard(firstRow) && !/^\d+$/.test(firstRow[0] || "");
+    headers = firstRowIsHeader ? firstRow : ["#", "时长", "画面", "台词", "备注"].slice(0, Math.max(firstRow.length, 3));
+    dataLines = firstRowIsHeader ? looseLines.slice(1) : looseLines;
+  }
+
   const shotIndex = headers.findIndex((header) => /分镜|镜头|shot/i.test(header));
+  const durationIndex = headers.findIndex((header) => /时长|时间|duration|time/i.test(header));
   const visualIndex = headers.findIndex((header) => /画面|视觉|visual|scene/i.test(header));
   const lineIndex = headers.findIndex((header) => /台词|旁白|文案|voice|line/i.test(header));
   const rows = [];
 
-  for (const line of lines.slice(headerIndex + 2)) {
-    if (!line.includes("|") || isMarkdownSeparatorRow(line)) break;
+  for (const line of dataLines) {
+    if (!line.includes("|") || isMarkdownSeparatorRow(line)) continue;
     const cells = splitMarkdownTableRow(line);
     const shot = cells[shotIndex >= 0 ? shotIndex : 0] || "";
-    const visual = cells[visualIndex >= 0 ? visualIndex : 1] || "";
-    const spoken = cells[lineIndex >= 0 ? lineIndex : 2] || "";
+    const duration = durationIndex >= 0 ? cells[durationIndex] || "" : "";
+    const visual = cells[visualIndex >= 0 ? visualIndex : duration ? 2 : 1] || "";
+    const spoken = cells[lineIndex >= 0 ? lineIndex : duration ? 3 : 2] || "";
     if (shot || visual || spoken) rows.push({ shot, visual, spoken });
   }
 
