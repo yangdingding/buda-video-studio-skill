@@ -2159,10 +2159,45 @@ label {
   overflow-wrap: anywhere;
 }
 
-.script-preview-actions {
+.script-preview-title {
   display: flex;
-  justify-content: flex-start;
-  margin-bottom: 10px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.script-preview-title > div {
+  min-width: 0;
+}
+
+.script-preview-open {
+  flex: 0 0 auto;
+  border: 1px solid color-mix(in oklch, var(--line) 82%, transparent);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 560;
+  cursor: pointer;
+  box-shadow: var(--shadow-subtle);
+}
+
+.script-preview-open:hover {
+  border-color: color-mix(in oklch, var(--accent) 34%, var(--line));
+  color: var(--accent-strong);
+}
+
+@media (max-width: 680px) {
+  .script-preview-title {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .script-preview-open {
+    width: fit-content;
+  }
 }
 
 .script-table-wrap {

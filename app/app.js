@@ -1402,17 +1402,20 @@ const closeScriptPreview = () => {
 };
 
 const scriptPreviewHtml = (item) => {
-  const text = scriptPreviewText(item);
+  const documents = scriptDocuments(item);
+  if (!documents.length) return "";
+  const text = scriptPreviewText(item) || documents[0]?.raw_text || "";
   if (!text) return "";
   const rows = scriptStoryboardRows(text);
+  const previewLabel = documents.length > 1 ? `脚本 / 分镜（${documents.length}）` : "脚本 / 分镜";
   return `
     <section class="section script-preview-section">
-      <div class="section-title">
-        <h4>剧本</h4>
-        <p>选题里已经带剧本；确认分镜、画面和台词后进入 AI 视频制作。</p>
-      </div>
-      <div class="script-preview-actions">
-        <button type="button" class="asset-action" data-script-preview-index="0">打开脚本 / 分镜</button>
+      <div class="section-title script-preview-title">
+        <div>
+          <h4>剧本</h4>
+          <p>选题里已经带剧本；确认分镜、画面和台词后进入 AI 视频制作。</p>
+        </div>
+        <button type="button" class="script-preview-open" data-script-preview-index="0">${escapeHtml(previewLabel)}</button>
       </div>
       ${
         rows.length
