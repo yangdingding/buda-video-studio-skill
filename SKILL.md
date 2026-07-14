@@ -12,7 +12,7 @@ This skill follows the App-in-Skill pattern:
 - The skill reads the configured online Google Drive video library and prepares a local review batch.
 - The local app is a quiet operator surface for review, notes, approvals, cover copy, channel decisions, and published-link records.
 - Script Markdown/text files are first-class production evidence: preserve original text and parsed storyboard tables in `script_documents`, and show them in the local app as table view plus raw source.
-- Topic scripts may come from a configured source repository ref, such as `origin/develop:apps/*/content/video-ideas/*.md`; read them without switching branches, preserve the Markdown as a script document, and parse storyboard tables.
+- Topic scripts may come from a configured source repository ref, such as `origin/develop:apps/*/content/video-ideas/*.md` or `origin/develop:apps/*/content/influencer/thread-kit/*.md`; read them without switching branches, preserve the Markdown as a script document, and parse storyboard tables.
 - The app reads and writes local handoff files and may sync video decision state to a single Google Drive JSON file.
 - External or irreversible actions require the skill to re-read approvals before executing.
 
@@ -75,6 +75,7 @@ topic_sources:
     - "origin/develop"
   markdown_patterns:
     - "apps/*/content/video-ideas/*.md"
+    - "apps/*/content/influencer/thread-kit/*.md"
   repository_fetch: true
 ```
 

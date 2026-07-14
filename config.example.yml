@@ -116,16 +116,17 @@ topic_sources:
   csv_path: ""
   # Optional Git-backed topic scripts. The skill reads Markdown directly from
   # the configured ref without switching branches. Useful for files such as
-  # apps/*/content/video-ideas/*.md in a source repo.
+  # apps/*/content/video-ideas/*.md or influencer thread-kit Markdown in a source repo.
   # Environment overrides:
   # - BUDA_VIDEO_TOPIC_REPO_PATHS=/agent/buda/works/vikadata-kapps
   # - BUDA_VIDEO_TOPIC_REPO_REFS=origin/develop
-  # - BUDA_VIDEO_TOPIC_MARKDOWN_PATTERNS=apps/*/content/video-ideas/*.md
+  # - BUDA_VIDEO_TOPIC_MARKDOWN_PATTERNS=apps/*/content/video-ideas/*.md,apps/*/content/influencer/thread-kit/*.md
   repository_paths: ""
   repository_refs:
     - "origin/develop"
   markdown_patterns:
     - "apps/*/content/video-ideas/*.md"
+    - "apps/*/content/influencer/thread-kit/*.md"
   repository_fetch: true
 
 production:
