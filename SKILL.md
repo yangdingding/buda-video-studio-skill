@@ -12,6 +12,7 @@ This skill follows the App-in-Skill pattern:
 - The skill reads the configured online Google Drive video library and prepares a local review batch.
 - The local app is a quiet operator surface for review, notes, approvals, cover copy, channel decisions, and published-link records.
 - Script Markdown/text files are first-class production evidence: preserve original text and parsed storyboard tables in `script_documents`, and show them in the local app as table view plus raw source.
+- Topic scripts may come from a configured source repository ref, such as `origin/develop:apps/*/content/video-ideas/*.md`; read them without switching branches, preserve the Markdown as a script document, and parse storyboard tables.
 - The app reads and writes local handoff files and may sync video decision state to a single Google Drive JSON file.
 - External or irreversible actions require the skill to re-read approvals before executing.
 
@@ -65,7 +66,21 @@ google_drive:
   token_path: "~/.config/buda-video-studio/google-oauth-token.json"
   access_token_env: "BUDA_VIDEO_GOOGLE_ACCESS_TOKEN"
   status_file_name: "buda-video-status.json"
+
+topic_sources:
+  enabled: true
+  repository_paths:
+    - "/agent/buda/works/vikadata-kapps"
+  repository_refs:
+    - "origin/develop"
+  markdown_patterns:
+    - "apps/*/content/video-ideas/*.md"
+  repository_fetch: true
 ```
+
+The repo-backed topic source can also be configured with environment variables:
+`BUDA_VIDEO_TOPIC_REPO_PATHS`, `BUDA_VIDEO_TOPIC_REPO_REFS`, and `BUDA_VIDEO_TOPIC_MARKDOWN_PATTERNS`.
+Do not commit personal local checkout paths; keep real paths in private config or env only.
 
 `local_drive` may exist as an explicit development fallback only. It is not the default and should not be used for team-facing workflows.
 

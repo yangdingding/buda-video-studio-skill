@@ -114,6 +114,19 @@ topic_sources:
   # - /agent/选题表/topics.csv
   # Avoid committing personal home-directory or local Drive sync paths here.
   csv_path: ""
+  # Optional Git-backed topic scripts. The skill reads Markdown directly from
+  # the configured ref without switching branches. Useful for files such as
+  # apps/*/content/video-ideas/*.md in a source repo.
+  # Environment overrides:
+  # - BUDA_VIDEO_TOPIC_REPO_PATHS=/agent/buda/works/vikadata-kapps
+  # - BUDA_VIDEO_TOPIC_REPO_REFS=origin/develop
+  # - BUDA_VIDEO_TOPIC_MARKDOWN_PATTERNS=apps/*/content/video-ideas/*.md
+  repository_paths: ""
+  repository_refs:
+    - "origin/develop"
+  markdown_patterns:
+    - "apps/*/content/video-ideas/*.md"
+  repository_fetch: true
 
 production:
   default_engine: "hyperframes"
