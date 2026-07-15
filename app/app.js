@@ -21,8 +21,10 @@ let editing = false;
 let syncing = false;
 let isApplyingRoute = false;
 let stateSnapshot = "";
+let lastSyncRequestAt = 0;
 const openArchivedAssetIds = new Set();
 const sidebarCollapsedStorageKey = "buda-video-studio-sidebar-collapsed";
+const automaticSyncIntervalMs = 2 * 60 * 1000;
 let sidebarCollapsed = window.localStorage.getItem(sidebarCollapsedStorageKey) === "true";
 let mobileSidebarOpen = false;
 
@@ -3292,9 +3294,10 @@ const loadState = async ({ force = false } = {}) => {
   render();
 };
 
-const syncNow = async () => {
+const syncNow = async ({ automatic = false } = {}) => {
   if (syncing) return;
   syncing = true;
+  lastSyncRequestAt = Date.now();
   const previousCount = items().length;
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), 180000);
@@ -3318,12 +3321,18 @@ const syncNow = async () => {
     if (diff !== 0) {
       $("#viewSubtitle").textContent = `刚刚同步：${nextCount} 个项目（${diff > 0 ? "+" : ""}${diff}）`;
     }
-    showToast({
-      title: "同步完成",
-      message: `${nextCount} 个项目${diff !== 0 ? `（${diff > 0 ? "+" : ""}${diff}）` : ""}`,
-    });
+    if (!automatic || diff !== 0) {
+      showToast({
+        title: automatic ? "素材库已自动更新" : "同步完成",
+        message: `${nextCount} 个项目${diff !== 0 ? `（${diff > 0 ? "+" : ""}${diff}）` : ""}`,
+      });
+    }
   } catch (error) {
     const message = error?.name === "AbortError" ? "同步超过 3 分钟还没有返回，后台可能仍在生成；稍后刷新页面再看。" : error.message || "同步失败，请稍后重试。";
+    if (automatic) {
+      console.warn("Automatic video library sync failed:", message);
+      return;
+    }
     showToast({
       title: "同步失败",
       message,
@@ -3335,6 +3344,12 @@ const syncNow = async () => {
     syncing = false;
     render();
   }
+};
+
+const syncAutomaticallyWhenDue = async () => {
+  if (document.hidden || editing || syncing) return;
+  if (Date.now() - lastSyncRequestAt < automaticSyncIntervalMs) return;
+  await syncNow({ automatic: true });
 };
 
 $("#searchInput").addEventListener("input", (event) => {
@@ -3403,5 +3418,10 @@ window.addEventListener("resize", () => {
     scheduleDashboardMasonry();
   }
 });
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) void syncAutomaticallyWhenDue();
+});
 await loadState();
+void syncAutomaticallyWhenDue();
 setInterval(() => loadState(), 4000);
+setInterval(() => void syncAutomaticallyWhenDue(), automaticSyncIntervalMs);
