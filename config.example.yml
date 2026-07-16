@@ -114,20 +114,17 @@ topic_sources:
   # - /agent/选题表/topics.csv
   # Avoid committing personal home-directory or local Drive sync paths here.
   csv_path: ""
-  # Optional Git-backed topic scripts. The skill reads Markdown directly from
-  # the configured ref without switching branches. Useful for files such as
-  # apps/*/content/video-ideas/*.md or influencer thread-kit Markdown in a source repo.
-  # Environment overrides:
-  # - BUDA_VIDEO_TOPIC_REPO_PATHS=/agent/buda/works/vikadata-kapps
-  # - BUDA_VIDEO_TOPIC_REPO_REFS=origin/develop
-  # - BUDA_VIDEO_TOPIC_MARKDOWN_PATTERNS=apps/*/content/video-ideas/*.md,apps/*/content/influencer/thread-kit/*.md
-  repository_paths: ""
+  # The Buda video topic board is the eight-post Busabase Thread Kit.
+  # Read it from the agent's mounted kapps checkout without switching branches.
+  repository_paths:
+    - "/agent/buda/works/vikadata-kapps"
   repository_refs:
     - "origin/develop"
   markdown_patterns:
-    - "apps/*/content/video-ideas/*.md"
-    - "apps/*/content/influencer/thread-kit/*.md"
+    - "apps/busabase-cloud/content/influencer/thread-kit/*.md"
   repository_fetch: true
+  include_repository_topics: true
+  repository_only: true
 
 production:
   default_engine: "hyperframes"
