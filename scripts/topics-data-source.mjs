@@ -116,11 +116,13 @@ const upsertTopic = async (csvPath, args) => {
   return rows;
 };
 
-const syncTopics = async (config, csvPath) => {
+const isLegacyTopicItem = (item) => item.category === "topic_data_source" || /^Topic\s*#/i.test(String(item.ref || ""));
+
+const syncTopics = async (config, csvPath, { replaceTopics = false } = {}) => {
   const batch = await readJson(currentBatchPath, null);
   if (!batch?.items) throw new Error(`Missing batch file: ${currentBatchPath}. Run scripts/generate_batch.mjs first.`);
   const decisions = Object.fromEntries((batch.items || []).filter((item) => item.decision).map((item) => [item.id, item.decision]));
-  const existingItems = (batch.items || []).filter((item) => item.category !== "topic_data_source");
+  const existingItems = (batch.items || []).filter((item) => (replaceTopics ? !isLegacyTopicItem(item) : item.category !== "topic_data_source"));
   const topicItems = await readTopicDataSourceItems({ config: { ...config, topic_sources: { ...(config.topic_sources || {}), csv_path: csvPath } }, decisions, existingItems });
   const itemsById = new Map();
   for (const item of existingItems) itemsById.set(item.id, item);
@@ -131,7 +133,7 @@ const syncTopics = async (config, csvPath) => {
     items: [...itemsById.values()],
   };
   await writeJson(currentBatchPath, nextBatch);
-  return { count: topicItems.length, total: nextBatch.items.length };
+  return { count: topicItems.length, total: nextBatch.items.length, removed_legacy_topics: batch.items.length - existingItems.length };
 };
 
 const threadKitImportConfig = (config, args) => ({
@@ -199,7 +201,8 @@ const importThreadKit = async (config, csvPath, args) => {
           repository_only: false,
         },
       },
-      csvPath
+      csvPath,
+      { replaceTopics: true }
     );
   } catch (error) {
     synced = { pending: true, reason: error.message || "Run scripts/generate_batch.mjs after importing." };
