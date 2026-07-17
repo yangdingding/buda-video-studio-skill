@@ -24,9 +24,12 @@ let stateSnapshot = "";
 let lastSyncRequestAt = 0;
 const openArchivedAssetIds = new Set();
 const sidebarCollapsedStorageKey = "buda-video-studio-sidebar-collapsed";
+const contentLocaleStorageKey = "buda-video-studio-content-locale";
 const automaticSyncIntervalMs = 2 * 60 * 1000;
 let sidebarCollapsed = window.localStorage.getItem(sidebarCollapsedStorageKey) === "true";
+let contentLocale = window.localStorage.getItem(contentLocaleStorageKey) === "en" ? "en" : "zh";
 let mobileSidebarOpen = false;
+let openScriptPreviewState = null;
 
 const $ = (selector) => document.querySelector(selector);
 
@@ -553,8 +556,56 @@ const secondaryDisplayTitle = (primary, values, fallbackSecondary = "") => {
   return [...values, fallbackSecondary].map(usableDisplayTitle).find((value) => titleKey(value) !== primaryKey) || "";
 };
 
+const isTopicSourceItem = (item) => item?.category === "topic_data_source";
+
+const localizedTopicContent = (item, locale = contentLocale) => {
+  const locales = item?.content_locales || {};
+  const requested = locales[locale] || {};
+  const fallback = locales.en || {};
+  return {
+    title: usableDisplayTitle(requested.title) || usableDisplayTitle(fallback.title) || usableDisplayTitle(item?.title),
+    summary: usableDisplayTitle(requested.summary) || usableDisplayTitle(fallback.summary) || usableDisplayTitle(item?.summary),
+    script: String(requested.script || fallback.script || item?.body || ""),
+    translated: Boolean(requested.title && requested.summary && requested.script),
+  };
+};
+
+const localeLabel = (locale) => (locale === "zh" ? "中文" : "English");
+
+const renderedLocaleButtons = ({ script = false } = {}) =>
+  ["zh", "en"]
+    .map(
+      (locale) =>
+        `<button type="button" data-${script ? "script-" : "content-"}locale="${locale}" aria-pressed="${contentLocale === locale}">${localeLabel(locale)}</button>`
+    )
+    .join("");
+
+const renderLocaleSwitches = () => {
+  document.querySelectorAll("[data-content-locale]").forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.contentLocale === contentLocale));
+  });
+  const scriptSwitch = $("#scriptLocaleSwitch");
+  if (scriptSwitch && openScriptPreviewState) scriptSwitch.innerHTML = renderedLocaleButtons({ script: true });
+};
+
+const setContentLocale = (locale) => {
+  contentLocale = locale === "en" ? "en" : "zh";
+  window.localStorage.setItem(contentLocaleStorageKey, contentLocale);
+  render();
+  if (openScriptPreviewState) openScriptPreview(openScriptPreviewState.item, openScriptPreviewState.index);
+};
+
 const itemTitleDisplay = (item, fallbackSecondary = "") => {
   const decision = currentDecision(item);
+  if (isTopicSourceItem(item)) {
+    const primary = localizedTopicContent(item, contentLocale).title;
+    const secondary = localizedTopicContent(item, contentLocale === "zh" ? "en" : "zh").title;
+    return {
+      primary: primary || item.ref,
+      secondary: secondaryDisplayTitle(primary, [secondary], fallbackSecondary),
+      source: "topic_data_source",
+    };
+  }
   const baseTitle = usableDisplayTitle(item.title);
   const confirmedCoverTitle = firstDisplayTitle(decision.cover_zh_title, decision.cover_title);
   if (confirmedCoverTitle) {
@@ -769,6 +820,9 @@ const coverLocaleValue = (item, decision, locale, key) => {
 
 const workflowQueue = (item) => {
   const decision = currentDecision(item);
+  // Canonical topics remain in the topic board even when their source says blocked.
+  // Drive project status must never decide whether an item is a topic.
+  if (isTopicSourceItem(item)) return "topic_board";
   if (isBlocked(item)) return "blocked";
   if (isWorkflowDone(item)) return "done";
   const coverReady = hasCoverAsset(item) || decision.workflow_step === "cover_done";
@@ -786,7 +840,7 @@ const workflowQueue = (item) => {
     return "edit_output";
   }
   if (aiVideoReady(item)) return "waiting_upload";
-  if (item.stage === "script_ready") return "topic_board";
+  if (item.stage === "script_ready") return "material_review";
   if (item.stage === "assets_ready") return "material_review";
   if (decision.workflow_step === "material_reviewed") return "edit_output";
   if (decision.action !== "approve") return "material_review";
@@ -916,6 +970,7 @@ const statusDisplayLabel = (item) => {
 const filterMatch = (item, filter) => {
   if (filter === "dashboard") return true;
   if (filter === "all") return true;
+  if (filter === "topic_board") return isTopicSourceItem(item);
   if (filter === "material_review") return ["material_review", "edit_output"].includes(workflowQueue(item));
   return workflowQueue(item) === filter;
 };
@@ -1103,7 +1158,7 @@ const topicBriefHtml = (item) => {
         <p>确认这个方向是否值得进入录制。</p>
       </div>
       <div class="brief-box">
-        <p>${escapeHtml(item.summary || item.title)}</p>
+        <p>${escapeHtml(localizedTopicContent(item).summary || item.summary || item.title)}</p>
         <ul>
           <li>目标受众：${escapeHtml(item.target_audience || "待确认")}</li>
           <li>建议方向：${escapeHtml(item.topic_direction || "待确认")}</li>
@@ -1182,7 +1237,19 @@ const scriptPreviewText = (item) => {
 
 const scriptDocuments = (item) => {
   const documents = Array.isArray(item?.script_documents) ? item.script_documents.filter((document) => document?.raw_text) : [];
-  if (documents.length) return documents;
+  if (documents.length) {
+    return documents.map((document) => {
+      const locales = document.locales || {};
+      const selected = locales[contentLocale] || locales.en || {};
+      return {
+        ...document,
+        ...selected,
+        raw_text: selected.raw_text || document.raw_text,
+        locale: locales[contentLocale]?.raw_text ? contentLocale : "en",
+        translation_available: Boolean(locales.zh?.raw_text),
+      };
+    });
+  }
   const text = scriptPreviewText(item);
   return text
     ? [
@@ -1349,6 +1416,8 @@ const openScriptPreview = (item, index = 0) => {
   const openLink = $("#scriptPreviewOpenLink");
   if (!modal || !title || !body || !document) return;
 
+  openScriptPreviewState = { item, index };
+
   const tables = normalizedScriptTables(document);
   const sections = Array.isArray(document.sections) ? document.sections : [];
   title.textContent = document.name || "脚本 / 分镜";
@@ -1356,6 +1425,8 @@ const openScriptPreview = (item, index = 0) => {
     <div class="script-modal-meta">
       ${document.path ? `<span>${escapeHtml(document.path)}</span>` : ""}
       <span>${escapeHtml(tables.length ? `${tables.length} 个表格` : "原文")}</span>
+      <span>${escapeHtml(document.locale === "zh" ? "中文译文" : "English source")}</span>
+      ${contentLocale === "zh" && !document.translation_available ? "<span>尚无中文译文，正在显示英文源稿</span>" : ""}
     </div>
     ${
       tables.length
@@ -1392,6 +1463,10 @@ const openScriptPreview = (item, index = 0) => {
     openLink.hidden = !document.web_view_link;
     openLink.href = document.web_view_link || "#";
   }
+  renderLocaleSwitches();
+  document.querySelectorAll("[data-script-locale]").forEach((button) => {
+    button.addEventListener("click", () => setContentLocale(button.dataset.scriptLocale));
+  });
   modal.hidden = false;
 };
 
@@ -1400,6 +1475,7 @@ const closeScriptPreview = () => {
   const body = $("#scriptPreviewBody");
   if (!modal) return;
   modal.hidden = true;
+  openScriptPreviewState = null;
   if (body) body.innerHTML = "";
 };
 
@@ -2049,7 +2125,9 @@ const reviewNotePlaceholder = (item) => {
 
 const filteredItems = () =>
   items().filter((item) => {
-    const text = `${itemDisplayId(item)} ${itemFilename(item)} ${item.title} ${item.summary} ${item.stage} ${item.status} ${item.outputs
+    const localized = localizedTopicContent(item);
+    const alternate = localizedTopicContent(item, contentLocale === "zh" ? "en" : "zh");
+    const text = `${itemDisplayId(item)} ${itemFilename(item)} ${item.title} ${item.summary} ${localized.title} ${localized.summary} ${alternate.title} ${alternate.summary} ${item.stage} ${item.status} ${item.outputs
       .map((output) => output.channel)
       .join(" ")}`.toLowerCase();
     const matchesSearch = !search || text.includes(search.toLowerCase());
@@ -2059,7 +2137,9 @@ const filteredItems = () =>
 
 const dashboardItems = (predicate) =>
   items().filter((item) => {
-    const text = `${itemDisplayId(item)} ${itemFilename(item)} ${item.title} ${item.summary} ${workflowLabel(item)} ${publishedChannelEntries(item)
+    const localized = localizedTopicContent(item);
+    const alternate = localizedTopicContent(item, contentLocale === "zh" ? "en" : "zh");
+    const text = `${itemDisplayId(item)} ${itemFilename(item)} ${item.title} ${item.summary} ${localized.title} ${localized.summary} ${alternate.title} ${alternate.summary} ${workflowLabel(item)} ${publishedChannelEntries(item)
       .map((entry) => entry.channel)
       .join(" ")}`.toLowerCase();
     return (!search || text.includes(search.toLowerCase())) && predicate(item);
@@ -2271,7 +2351,7 @@ const scheduleDashboardMasonry = () => {
 };
 
 const renderDashboard = () => {
-  const topicItems = dashboardItems((item) => workflowQueue(item) === "topic_board");
+  const topicItems = dashboardItems(isTopicSourceItem);
   const assignmentItems = dashboardItems((item) => workflowQueue(item) === "assignment");
   const recordingItems = dashboardItems((item) => workflowQueue(item) === "recording");
   const missingItems = dashboardItems((item) => workflowQueue(item) === "waiting_upload");
@@ -3243,9 +3323,15 @@ const executeHandoff = async (id) => {
 
 const renderTop = () => {
   const batch = state?.batch;
-  $("#batchMeta").textContent = batch ? `${batch.items.length} 个视频` : "暂无批次";
+  const topicSource = batch?.topic_source;
+  $("#batchMeta").textContent = batch ? `${batch.items.length} 个项目` : "暂无批次";
   $("#viewTitle").textContent = filters.find(([key]) => key === activeFilter)?.[1] || "All Videos";
-  $("#viewSubtitle").textContent = batch?.generated_at ? `最近同步：${new Date(batch.generated_at).toLocaleString()}` : "请先同步视频库。";
+  $("#viewSubtitle").textContent =
+    activeFilter === "topic_board" && topicSource
+      ? `Thread Kit ${topicSource.active_count}/${topicSource.expected_count} 条 · ${topicSource.bilingual_complete_count} 条已完成双语`
+      : batch?.generated_at
+        ? `最近同步：${new Date(batch.generated_at).toLocaleString()}`
+        : "请先同步视频库。";
   const syncButton = $("#syncButton");
   if (syncButton) {
     syncButton.disabled = syncing || Boolean(state?.lock);
@@ -3256,6 +3342,7 @@ const renderTop = () => {
   $("#lockStatus").hidden = !lock;
   $("#lockStatus").textContent = lock ? `同步中：${lock.message}` : "";
   $("#lockStatus").classList.toggle("locked", Boolean(lock));
+  renderLocaleSwitches();
 };
 
 const render = () => {
@@ -3355,6 +3442,10 @@ const syncAutomaticallyWhenDue = async () => {
 $("#searchInput").addEventListener("input", (event) => {
   search = event.target.value;
   render();
+});
+
+document.querySelectorAll("[data-content-locale]").forEach((button) => {
+  button.addEventListener("click", () => setContentLocale(button.dataset.contentLocale));
 });
 
 $("#syncButton")?.addEventListener("click", syncNow);

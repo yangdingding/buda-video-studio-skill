@@ -11,7 +11,9 @@ const skillSource = await readFile(join(root, "SKILL.md"), "utf8");
 const requiredAppRule = 'if (item.stage === "editing" || decision.workflow_step === "editing") return "editing";';
 const requiredHandoffRule = 'if (decision.workflow_step === "delivery_requested") return "editing";';
 const explicitAiProductionRule = 'return ["topic_selected", "ai_video_production_requested"].includes(decision.workflow_step);';
-const legacyScriptRule = 'if (item.stage === "script_ready") return "topic_board";';
+const canonicalTopicRule = 'if (isTopicSourceItem(item)) return "topic_board";';
+const topicBoardFilter = 'if (filter === "topic_board") return isTopicSourceItem(item);';
+const driveScriptRule = 'if (item.stage === "script_ready") return "material_review";';
 const legacyAssetsRule = 'if (item.stage === "assets_ready") return "material_review";';
 const forbiddenCoverQueue = "cover_" + "generation";
 
@@ -33,8 +35,16 @@ const checks = [
     message: "app workflow only sends explicitly accepted topics into AI production.",
   },
   {
-    ok: appSource.includes(legacyScriptRule),
-    message: "legacy Drive script-only folders stay in the topic board.",
+    ok: appSource.includes(canonicalTopicRule),
+    message: "canonical topic records remain in the topic board regardless of status.",
+  },
+  {
+    ok: appSource.includes(topicBoardFilter),
+    message: "the topic board filters by topic entity rather than Drive workflow status.",
+  },
+  {
+    ok: appSource.includes(driveScriptRule),
+    message: "Drive script-only folders do not enter the topic board.",
   },
   {
     ok: appSource.includes(legacyAssetsRule),

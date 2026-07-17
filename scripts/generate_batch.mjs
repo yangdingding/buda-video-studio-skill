@@ -115,6 +115,12 @@ export const generateBatch = async () => {
       metrics: countMetrics(allItems),
       onboarding: state.onboarding,
       drive_status: state.drive_status || null,
+      topic_source: {
+        kind: "canonical_topics_csv",
+        active_count: topicItems.length,
+        expected_count: 8,
+        bilingual_complete_count: topicItems.filter((item) => item.translation_status === "complete").length,
+      },
       config_summary: {
         ...state.config_summary,
         data_reader: reader.name,

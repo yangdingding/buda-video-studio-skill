@@ -67,6 +67,11 @@ const main = async () => {
     assert(Array.isArray(item.source_assets), `Item "${item.id}" source_assets must be an array.`);
     assert(Array.isArray(item.script_documents), `Item "${item.id}" script_documents must be an array.`);
     assert(Array.isArray(item.outputs), `Item "${item.id}" outputs must be an array.`);
+    if (item.category === "topic_data_source") {
+      assert(item.content_locales && typeof item.content_locales === "object", `Topic "${item.id}" must include content_locales.`);
+      assert(typeof item.content_locales.en?.title === "string", `Topic "${item.id}" must preserve an English title.`);
+      assert(typeof item.translation_status === "string", `Topic "${item.id}" must include translation_status.`);
+    }
   }
 
   const decisions = await readJson(decisionsPath, { decisions: {} });

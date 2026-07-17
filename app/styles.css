@@ -417,6 +417,39 @@ p {
   gap: 10px;
 }
 
+.locale-switch {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel-inset);
+}
+
+.locale-switch button {
+  min-width: 54px;
+  height: 30px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.locale-switch button:last-child {
+  border-right: 0;
+}
+
+.locale-switch button[aria-pressed="true"] {
+  background: var(--panel);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.script-locale-switch {
+  border-color: color-mix(in oklch, var(--line) 74%, transparent);
+}
+
 .top-heading {
   display: flex;
   min-width: 0;

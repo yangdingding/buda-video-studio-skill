@@ -81,6 +81,14 @@ const topicRowsFromBatch = async () => {
         priority: item.topic_priority || item.decision?.topic_priority || "P1",
         source: item.topic_source || "选题表",
         note: item.body || item.summary || "",
+        title_en: item.content_locales?.en?.title || item.title,
+        title_zh: item.content_locales?.zh?.title || "",
+        summary_en: item.content_locales?.en?.summary || item.summary || "",
+        summary_zh: item.content_locales?.zh?.summary || "",
+        script_en: item.content_locales?.en?.script || item.body || "",
+        script_zh: item.content_locales?.zh?.script || "",
+        translation_status: item.translation_status || "source_only",
+        source_ref: item.rule?.evidence?.source_ref || "",
       })
     );
 };
@@ -159,6 +167,9 @@ const importThreadKit = async (config, csvPath, args) => {
     existingItems: [],
   });
   if (topicItems.length === 0) throw new Error("No Thread Kit topics were found. Check --source-repo and --source-ref.");
+  if (topicItems.length !== 8) {
+    throw new Error(`Thread Kit import expected exactly 8 topics, found ${topicItems.length}. Refuse to replace the canonical topic table.`);
+  }
 
   const rows = topicItems.map((item) => {
     const document = item.script_documents?.[0] || {};
@@ -171,13 +182,28 @@ const importThreadKit = async (config, csvPath, args) => {
       priority: item.topic_priority || "P1",
       source: "Busabase Thread Kit",
       note: item.summary || "",
-      script: document.raw_text || "",
+      title_en: item.content_locales?.en?.title || item.title,
+      title_zh: item.content_locales?.zh?.title || "",
+      summary_en: item.content_locales?.en?.summary || item.summary || "",
+      summary_zh: item.content_locales?.zh?.summary || "",
+      script: item.content_locales?.en?.script || document.locales?.en?.raw_text || document.raw_text || "",
+      script_en: item.content_locales?.en?.script || document.locales?.en?.raw_text || document.raw_text || "",
+      script_zh: item.content_locales?.zh?.script || document.locales?.zh?.raw_text || "",
+      translation_status: item.translation_status || "source_only",
+      source_ref: item.rule?.evidence?.source_ref || args.sourceRef || "",
       script_name: document.name || "",
       script_source_path: document.path || "",
     });
   });
 
-  if (!args.apply) return { csv_path: csvPath, rows: rows.length, apply_required: true };
+  if (!args.apply) {
+    return {
+      csv_path: csvPath,
+      rows: rows.length,
+      bilingual_complete: rows.filter((row) => row.translation_status === "complete").length,
+      apply_required: true,
+    };
+  }
 
   const backupPath = legacyTopicPath(csvPath);
   try {
@@ -208,7 +234,13 @@ const importThreadKit = async (config, csvPath, args) => {
     synced = { pending: true, reason: error.message || "Run scripts/generate_batch.mjs after importing." };
   }
 
-  return { csv_path: csvPath, backup_path: backupPath, rows: rows.length, synced };
+  return {
+    csv_path: csvPath,
+    backup_path: backupPath,
+    rows: rows.length,
+    bilingual_complete: rows.filter((row) => row.translation_status === "complete").length,
+    synced,
+  };
 };
 
 const main = async () => {

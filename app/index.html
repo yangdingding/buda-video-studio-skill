@@ -46,6 +46,10 @@
             </div>
           </div>
           <div class="top-actions">
+            <div class="locale-switch" role="group" aria-label="内容语言">
+              <button type="button" data-content-locale="zh">中文</button>
+              <button type="button" data-content-locale="en">English</button>
+            </div>
             <button class="sync-button" id="syncButton" type="button">
               <span class="sync-icon" aria-hidden="true">↻</span>
               <span>重新同步</span>
@@ -97,6 +101,7 @@
         <div class="script-modal-top">
           <span id="scriptPreviewTitle">脚本 / 分镜</span>
           <div>
+            <div class="locale-switch script-locale-switch" id="scriptLocaleSwitch" role="group" aria-label="脚本语言"></div>
             <a id="scriptPreviewOpenLink" href="#" target="_blank" rel="noreferrer" hidden>云端打开</a>
             <button class="script-modal-close" id="closeScriptPreview" aria-label="关闭脚本" title="关闭脚本">×</button>
           </div>
