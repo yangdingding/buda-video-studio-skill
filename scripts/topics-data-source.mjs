@@ -138,6 +138,12 @@ const syncTopics = async (config, csvPath, { replaceTopics = false } = {}) => {
   const nextBatch = {
     ...batch,
     generated_at: new Date().toISOString(),
+    topic_source: {
+      kind: "canonical_topics_csv",
+      active_count: topicItems.length,
+      expected_count: 8,
+      bilingual_complete_count: topicItems.filter((item) => item.translation_status === "complete").length,
+    },
     items: [...itemsById.values()],
   };
   await writeJson(currentBatchPath, nextBatch);
