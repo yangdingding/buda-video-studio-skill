@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { writeFile } from "node:fs/promises";
+import { copyFile, writeFile } from "node:fs/promises";
+import { basename } from "node:path";
 import { loadConfig } from "../lib/config.mjs";
 import { readJson, writeJson } from "../lib/common.mjs";
 import { currentBatchPath } from "../lib/paths.mjs";
@@ -17,6 +18,7 @@ const usage = () => `Usage:
   node scripts/topics-data-source.mjs list
   node scripts/topics-data-source.mjs upsert --topic "标题" [--status 待确认] [--owner 小明] [--due-date 2026-06-30] [--priority P1] [--source 选题表] [--note 备注] [--id stable-id]
   node scripts/topics-data-source.mjs sync
+  node scripts/topics-data-source.mjs import-thread-kit [--apply] [--source-repo /path/to/kapps] [--source-ref origin/develop]
 
 Options:
   --csv /path/to/topics.csv   Override the topic CSV path. Defaults to app/.cache/topics.csv when no configured source exists.
@@ -42,10 +44,11 @@ const readArgs = (argv) => {
   return args;
 };
 
-const topicMarkdown = (rows) =>
+const topicMarkdown = (rows, { legacyPath = "" } = {}) =>
   [
     "# Buda Video Topics",
     "",
+    ...(legacyPath ? [`<!-- Previous topic table archived at ${basename(legacyPath)}. It is excluded from the active source. -->`, ""] : []),
     "| Topic | Status | Owner | Due Date | Priority | Source | Note |",
     "| --- | --- | --- | --- | --- | --- | --- |",
     ...rows.map(
@@ -57,7 +60,7 @@ const topicMarkdown = (rows) =>
     "",
   ].join("\n");
 
-const resolveCsvPathForCommand = async (config, args) => args.csv || config.topic_sources?.csv_path || defaultTopicCsvPath;
+const resolveCsvPathForCommand = async (config, args) => args.csv || (await resolveTopicCsvPath(config)) || defaultTopicCsvPath;
 
 const listTopics = async (csvPath) => {
   const rows = await readExistingTopicRows(csvPath);
@@ -131,6 +134,80 @@ const syncTopics = async (config, csvPath) => {
   return { count: topicItems.length, total: nextBatch.items.length };
 };
 
+const threadKitImportConfig = (config, args) => ({
+  ...config,
+  topic_sources: {
+    ...(config.topic_sources || {}),
+    repository_paths: args.sourceRepo ? [args.sourceRepo] : config.topic_sources?.repository_paths,
+    repository_refs: args.sourceRef ? [args.sourceRef] : config.topic_sources?.repository_refs,
+    markdown_patterns: ["apps/busabase-cloud/content/influencer/thread-kit/*.md"],
+    repository_fetch: true,
+    repository_enrichment: true,
+    include_repository_topics: true,
+    repository_only: true,
+  },
+});
+
+const legacyTopicPath = (csvPath) => `${csvPath.replace(/\.csv$/i, "")}.legacy-${new Date().toISOString().replace(/[:.]/g, "-")}.csv`;
+
+const importThreadKit = async (config, csvPath, args) => {
+  const topicItems = await readTopicDataSourceItems({
+    config: threadKitImportConfig(config, args),
+    decisions: {},
+    existingItems: [],
+  });
+  if (topicItems.length === 0) throw new Error("No Thread Kit topics were found. Check --source-repo and --source-ref.");
+
+  const rows = topicItems.map((item) => {
+    const document = item.script_documents?.[0] || {};
+    return normalizeTopicRow({
+      id: item.display_id || item.id.replace(/^topic-/, ""),
+      topic: item.title,
+      status: item.topic_decision || "待确认",
+      owner: item.owner || "",
+      due_date: item.due_date || "",
+      priority: item.topic_priority || "P1",
+      source: "Busabase Thread Kit",
+      note: item.summary || "",
+      script: document.raw_text || "",
+      script_name: document.name || "",
+      script_source_path: document.path || "",
+    });
+  });
+
+  if (!args.apply) return { csv_path: csvPath, rows: rows.length, apply_required: true };
+
+  const backupPath = legacyTopicPath(csvPath);
+  try {
+    await copyFile(csvPath, backupPath);
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
+  await writeTopicRows(csvPath, rows);
+  await writeFile(`${csvPath.replace(/\.csv$/i, "")}.md`, topicMarkdown(rows, { legacyPath: backupPath }), "utf8");
+
+  let synced = null;
+  try {
+    synced = await syncTopics(
+      {
+        ...config,
+        topic_sources: {
+          ...(config.topic_sources || {}),
+          csv_path: csvPath,
+          repository_enrichment: false,
+          include_repository_topics: false,
+          repository_only: false,
+        },
+      },
+      csvPath
+    );
+  } catch (error) {
+    synced = { pending: true, reason: error.message || "Run scripts/generate_batch.mjs after importing." };
+  }
+
+  return { csv_path: csvPath, backup_path: backupPath, rows: rows.length, synced };
+};
+
 const main = async () => {
   const args = readArgs(process.argv.slice(2));
   const command = args._[0] || "help";
@@ -160,6 +237,12 @@ const main = async () => {
     await writeFile(`${csvPath.replace(/\.csv$/i, "")}.md`, topicMarkdown(rows), "utf8");
     const synced = await syncTopics(config, csvPath);
     process.stdout.write(JSON.stringify({ csv_path: csvPath, rows: rows.length, synced }, null, 2) + "\n");
+    return;
+  }
+
+  if (command === "import-thread-kit") {
+    const result = await importThreadKit(config, csvPath, args);
+    process.stdout.write(JSON.stringify(result, null, 2) + "\n");
     return;
   }
 

@@ -114,8 +114,8 @@ topic_sources:
   # - /agent/选题表/topics.csv
   # Avoid committing personal home-directory or local Drive sync paths here.
   csv_path: ""
-  # The Buda video topic board is the eight-post Busabase Thread Kit.
-  # Read it from the agent's mounted kapps checkout without switching branches.
+  # Used only by the explicit import-thread-kit migration command. Runtime
+  # reads the normalized topic CSV produced by that command.
   repository_paths:
     - "/agent/buda/works/vikadata-kapps"
   repository_refs:
@@ -123,8 +123,9 @@ topic_sources:
   markdown_patterns:
     - "apps/busabase-cloud/content/influencer/thread-kit/*.md"
   repository_fetch: true
-  include_repository_topics: true
-  repository_only: true
+  repository_enrichment: false
+  include_repository_topics: false
+  repository_only: false
 
 production:
   default_engine: "hyperframes"
